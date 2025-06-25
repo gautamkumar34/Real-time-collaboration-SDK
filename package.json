@@ -1,0 +1,14 @@
+{
+  "private": true,
+  "workspaces": [
+    "sdk",
+    "server",
+    "demo-app"
+  ],
+  "scripts": {
+    "bootstrap": "npm install",
+    "build:sdk": "npm run build --workspace=sdk",
+    "dev:demo": "npm run dev --workspace=demo-app",
+    "dev:server": "npm run dev --workspace=server"
+  }
+}

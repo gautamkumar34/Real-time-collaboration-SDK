@@ -1,0 +1,181 @@
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 10px;
+  background-color: #323232;
+  color: #ffffff;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+.container {
+  width:100%;
+  height: 100vh;
+  margin: 10px auto;
+  padding: 10px;
+  background-color: #323232; 
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; /* body font */
+  color: #ffffff; 
+}
+
+.Header{
+  margin: 10px,20px;
+  display: flex;
+  justify-content: space-between;
+  padding-right: 20px;
+}
+
+.logo{
+  display: flex;
+}
+
+.logo img{
+  width: 20%;
+  height: 70%;
+  margin-right: 10px;
+}
+
+.status-bar{
+  margin-bottom: 10px;
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+h1, h2 {
+  color: #e9ecef; 
+  margin: 0;
+  padding: 0;
+}
+
+.status {
+  padding: 5px 10px;
+  border-radius: 5px;
+  font-size: 0.9em;
+  font-weight: bold;
+}
+
+/* .status.connected {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status.disconnected, .status.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.status.synced {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.status.unsynced {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status.live-on {
+  background-color: #d1ecf1;
+  color: #0c5460;
+}
+
+.status.live-off {
+  background-color: #e2e3e5;
+  color: #383d41;
+}
+ */
+
+/* Controls styling */
+/* .controls {
+  margin-bottom: 20px;
+} */
+
+.toggle-button {
+  padding: 10px 15px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.2s ease;
+}
+
+.toggle-button.pause {
+  background-color: black;
+  color: white;
+}
+
+.toggle-button.pause:hover {
+  background-color:black;
+}
+
+.toggle-button.resume {
+  background-color: white; 
+  color: black;
+}
+
+.toggle-button.resume:hover {
+  background-color: white;
+}
+
+.toggle-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+.editor-section {
+  margin-bottom: 20px;
+}
+
+.collab-editor {
+  width: 97%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; 
+  font-family: monospace; 
+  resize: vertical; 
+  font-size: 1rem; 
+  color: white; 
+  background-color: black; 
+}
+
+.collab-editor:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.collab-editor::placeholder {
+  color: #999;
+}
+
+.collab-editor:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+}
+
+
+.debug-json {
+  width: 95.5%;
+  background-color: black;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 4px;
+  white-space: pre-wrap; /* Ensure wrapping for long JSON */
+  word-wrap: break-word; /* Break long words */
+  max-height: 200px; 
+  overflow-y: auto; /* Add scroll if content overflows */
+  font-family: monospace;
+  font-size: 0.9em;
+  color: white;
+}
+
+
+.actor-id, .room-id {
+  font-weight: bold;
+  color: #007bff;
+}

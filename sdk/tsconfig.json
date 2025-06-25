@@ -1,0 +1,22 @@
+// sdk/tsconfig.json
+{
+    "compilerOptions": {
+      "target": "es2018",
+      "module": "commonjs", // Or "esnext" if you're bundling with Webpack/Rollup
+      "lib": ["es2018", "dom"], // 'dom' is important for browser-specific APIs if you target browsers
+      "outDir": "./dist",
+      "strict": true,
+      "esModuleInterop": true, // <--- Crucial for handling CommonJS/ESM interop
+      "skipLibCheck": true,   // <--- Can sometimes help with complex type issues in node_modules
+      "forceConsistentCasingInFileNames": true,
+      "declaration": true, // To generate .d.ts files for your SDK
+      "sourceMap": true
+    },
+    "include": [
+      "src/**/*"
+    ],
+    "exclude": [
+      "node_modules",
+      "**/*.test.ts"
+    ]
+  }

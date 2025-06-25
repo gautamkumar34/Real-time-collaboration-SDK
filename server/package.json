@@ -1,0 +1,22 @@
+
+{
+  "name": "collab-server",
+  "version": "1.0.0",
+  "description": "Socket.IO server for CollabDoc",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "npx ts-node src/index.ts",
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "socket.io": "^4.x.x" 
+  },
+  "devDependencies": {
+    "@types/node": "^20.x.x",
+    "ts-node": "^10.x.x",
+    "typescript": "^5.x.x"
+  }
+}

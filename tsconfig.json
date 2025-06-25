@@ -1,0 +1,26 @@
+// tsconfig.json at the root
+{
+    "compilerOptions": {
+      "composite": true,
+      "declaration": true,
+      "declarationMap": true,
+      "esModuleInterop": true,
+      "forceConsistentCasingInFileNames": true,
+      "strict": true,
+      "moduleResolution": "node",
+      "module": "esnext",
+      "target": "esnext",
+      "rootDir": ".",
+      "outDir": "dist",
+      "baseUrl": ".",
+      "paths": {
+        "*": ["./*"]
+      }
+    },
+    "exclude": ["node_modules", "dist"],
+    "references": [
+      { "path": "./sdk/tsconfig.json" },
+      { "path": "./server/tsconfig.json" },
+      { "path": "./demo-app/tsconfig.json" }
+    ]
+  }
