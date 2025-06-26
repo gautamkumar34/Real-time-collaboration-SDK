@@ -1,9 +1,5 @@
 **`# CollabDoc SDK: Real-time Document Collaboration**
 
-![GitHub last commit](https://img.shields.io/github/last-commit/gautamkumar34/Real-time-collaboration-SDK)
-![GitHub stars](https://img.shields.io/github/stars/gautamkumar34/Real-time-collaboration-SDK?style=social)
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
-
 ---
 
 **## ✨ Introduction**
