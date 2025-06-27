@@ -266,6 +266,4 @@ Contributions are welcome! If you have suggestions for improvements, new feature
 
 Please ensure your code adheres to the existing coding style and includes relevant tests if applicable.
 
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+MADE BY GAUTAM <3
