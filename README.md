@@ -37,7 +37,7 @@ sdk-project/
     ├── src/
     │   └── App.tsx               # Main component
     └── package.json
-
+```
 
 ## 🚀 Features
 
