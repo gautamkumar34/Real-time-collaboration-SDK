@@ -23,16 +23,16 @@ In a world of complex collaborative solutions, `CollabDoc SDK` stands out by off
 This project is organized as a monorepo using npm workspaces, containing three main packages:`
 
 sdk-project/
-├── server/          # Node.js Socket.IO server for real-time communication and document state management.
+├── server/          
 │   └── index.ts
-├── sdk/             # The core CollabDoc SDK, a TypeScript library.
+├── sdk/             
 │   ├── src/
-│   │   ├── collab-doc.ts      # Core CollabDoc class with connection, state, and operation logic.
-│   │   └── react/useCollabDoc.ts # React hook for easy integration.
+│   │   ├── collab-doc.ts      
+│   │   └── react/useCollabDoc.ts 
 │   └── package.json
-└── demo-app/        # A simple React application demonstrating the SDK's usage.
+└── demo-app/       
 ├── src/
-│   └── App.tsx          # The main demo component.
+│   └── App.tsx          
 └── package.json
 
 ## 🚀 Features
