@@ -20,11 +20,7 @@ In a world of complex collaborative solutions, `CollabDoc SDK` stands out by off
 
 This project is organized as a monorepo using npm workspaces, containing three main packages:`
 
-[GitHub last commit](https://img.shields.io/github/last-commit/gautamkumar34/Real-time-collaboration-SDK)
-
-[GitHub stars](https://img.shields.io/github/stars/gautamkumar34/Real-time-collaboration-SDK?style=social)
-
-![License](https://img.shields.io/badge/License-MIT-blue.svg)
+```bash
 
 sdk-project/
 ├── server/          # Node.js Socket.IO server for real-time communication and document state management.
@@ -38,6 +34,8 @@ sdk-project/
 ├── src/
 │   └── App.tsx          # The main demo component.
 └── package.json
+
+```
 
 ## 🚀 Features
 
