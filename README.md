@@ -1,12 +1,12 @@
-**`# CollabDoc SDK: Real-time Document Collaboration**
+# CollabDoc SDK: Real-time Document Collaboration
 
-**## ✨ Introduction**
+## ✨ Introduction
 
 Welcome to `CollabDoc SDK`, a lightweight and highly efficient Software Development Kit designed for building real-time, collaborative document applications. This SDK provides the core infrastructure to enable multiple users to edit a shared document simultaneously, with changes instantly synchronized across all connected clients.
 
 Whether you're building a simple collaborative note-taking app, a shared code editor, or a complex document management system, `CollabDoc SDK` offers a robust foundation for real-time data synchronization.
 
-**## 💡 Why CollabDoc SDK? (Uniqueness)**
+## 💡 Why CollabDoc SDK? (Uniqueness)
 
 In a world of complex collaborative solutions, `CollabDoc SDK` stands out by offering:
 
@@ -16,15 +16,15 @@ In a world of complex collaborative solutions, `CollabDoc SDK` stands out by off
 * **Full-Stack Example:** The project includes a complete server and a demo React app, demonstrating a fully functional collaborative environment from end-to-end. This jumpstarts your development process.
 * **Self-Contained Ecosystem:** Everything you need to get started with a basic collaborative document is within this single repository.
 
-**## 📦 Project Structure**
+## 📦 Project Structure
 
-This project is organized as a monorepo using npm workspaces, containing three main packages:`
+This project is organized as a monorepo using npm workspaces, containing three main packages:
 
 ```bash
 
 sdk-project/
 ├── server/          # Node.js Socket.IO server for real-time communication and document state management.
-│   └── index.ts
+│   └── src/index.ts
 ├── sdk/             # The core CollabDoc SDK, a TypeScript library.
 │   ├── src/
 │   │   ├── collab-doc.ts      # Core CollabDoc class with connection, state, and operation logic.
@@ -48,7 +48,7 @@ sdk-project/
 - **Live Mode Toggle:** Clients can pause/resume live updates from the server, allowing for focused individual work or controlled broadcasting of changes.
 - **Modular & Extensible:** Built as a monorepo, separating the core SDK, server, and demo app for clear development and easy extension.
 
-`## 🚀 Getting Started
+## 🚀 Getting Started
 
 Follow these steps to get the `CollabDoc SDK` server and demo application up and running on your local machine.
 
@@ -57,10 +57,10 @@ Follow these steps to get the `CollabDoc SDK` server and demo application up and
 * Node.js (LTS version recommended)
 * npm (comes with Node.js)
 
-### 1. Clone the Repository`
+### 1. Clone the Repository
 
 ```bash
-git clone [https://github.com/gautamkumar34/Real-time-collaboration-SDK.git]
+git clone https://github.com/gautamkumar34/Real-time-collaboration-SDK.git
 cd sdk-project
 ```
 
@@ -122,20 +122,15 @@ The core of the SDK is the `CollabDoc` class and its React hook wrapper, `useCol
 
 ```tsx
 
-import CollabDoc, { Path, CollabDocOptions } from 'collabdoc-sdk'; // Assuming 'collabdoc-sdk' is your package name
+import CollabDoc, { Path, CollabDocConfig } from 'collab-doc';
 
-// Options for initializing CollabDoc
-interface CollabDocOptions {
-    roomId: string;    // Unique ID for the collaborative document
-    actorId: string;   // Unique ID for the current user/client
-    serverUrl: string; // URL of your Socket.IO server (e.g., 'http://localhost:8080')
-}
-
-const doc = new CollabDoc({
+const config: CollabDocConfig = {
     roomId: 'my-shared-doc',
     actorId: 'user-abc',
     serverUrl: 'http://localhost:8080'
-});
+};
+
+const doc = new CollabDoc(config);
 
 // Connect to the server
 doc.connect();
@@ -151,13 +146,14 @@ doc.delete(['oldData']);
 const currentState = doc.getDocumentState(); // { content: 'Hello, world!' }
 
 // Event listeners
-doc.on('change', (newDocState: Record<string, any>) => {
-    console.log('Document updated:', newDocState);
+doc.on('change', (payload: { path: Path; action: 'set' | 'del'; value?: any; isRemote: boolean }) => {
+    console.log('Operation applied:', payload);
+    console.log('Current state:', doc.getDocumentState());
 });
 doc.on('connect', () => console.log('Connected to server.'));
 doc.on('disconnect', (reason: string) => console.log('Disconnected:', reason));
 doc.on('synced', () => console.log('Document synced with server.'));
-doc.on('error', (err: Error) => console.error('SDK Error:', err.message));
+doc.on('error', (err: any) => console.error('SDK Error:', err?.message ?? err));
 doc.on('pause', () => console.log('Live updates paused.'));
 doc.on('resume', () => console.log('Live updates resumed.'));
 
@@ -176,7 +172,8 @@ This hook simplifies using `CollabDoc` in React components, managing state, conn
 ```tsx
 
 import React from 'react';
-import { useCollabDoc } from './path/to/useCollabDoc'; // Adjust path based on your project structure
+// In this monorepo, the demo imports the hook directly from source:
+import { useCollabDoc } from '../../sdk/src/react/useCollabDoc';
 
 function MyCollaborativeEditor() {
     const {
