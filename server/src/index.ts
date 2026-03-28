@@ -3,19 +3,36 @@ import http from 'http';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
 
+/** Comma-separated browser origins (e.g. https://your-app.vercel.app). Use * for local dev only. */
+function getCorsOrigin(): string | string[] {
+    const raw = process.env.CORS_ORIGIN?.trim();
+    if (!raw || raw === '*') {
+        return '*';
+    }
+    return raw.split(',').map((s) => s.trim()).filter(Boolean);
+}
+
 const roomStates: Map<string, any> = new Map();
 const roomMetadata: Map<string, { [path: string]: { timestamp: number; actorId: string; version: number } }> = new Map();
 
 const httpServer = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    const path = req.url?.split('?')[0] ?? '/';
+
+    if (path === '/health' || path === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ status: 'ok', service: 'collab-server' }));
+        return;
+    }
+
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
     res.end('CollabDoc Socket.IO Server\n');
 });
 
 const io = new Server(httpServer, {
     cors: {
-        origin: "*", 
-        methods: ["GET", "POST"]
-    }
+        origin: getCorsOrigin(),
+        methods: ['GET', 'POST'],
+    },
 });
 
 io.on('connection', (socket) => {
@@ -96,8 +113,10 @@ io.on('connection', (socket) => {
     });
 });
 
-httpServer.listen(PORT, () => {
-    console.log(`CollabDoc Socket.IO server listening on http://localhost:${PORT}`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+    console.log(
+        `CollabDoc Socket.IO server listening on 0.0.0.0:${PORT} (health: GET /health)`
+    );
 });
 
 function deepSet(obj: any, path: (string | number)[], value: any): void {

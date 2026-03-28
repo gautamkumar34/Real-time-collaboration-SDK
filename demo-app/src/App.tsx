@@ -6,7 +6,8 @@ import './App.css';
 function App() {
     const roomId = 'my-first-collab-document';
     const [actorId] = useState(() => `client-${Math.random().toString(36).substring(2, 9)}`);
-    const serverUrl = 'http://localhost:8080';
+    const serverUrl =
+        import.meta.env.VITE_SERVER_URL?.trim() || 'http://localhost:8080';
 
     const {
         docState,

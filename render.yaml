@@ -1,0 +1,15 @@
+# Render Blueprint: deploy the Socket.IO server as a Web Service.
+# After deploy, set CORS_ORIGIN to your Vercel app URL (https://your-app.vercel.app).
+services:
+  - type: web
+    name: collab-server
+    runtime: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ORIGIN
+        sync: false
