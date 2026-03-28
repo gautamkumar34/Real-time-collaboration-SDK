@@ -93,6 +93,7 @@ export default class CollabDoc extends BrowserEventEmitter<CollabDocEvents> {
         this.remoteOperationsBuffer = [];
         this.socket = io(this.serverUrl, {
             autoConnect: false,
+            transports: ["websocket"],
         });
 
         this.socket.on('connect', () => {
