@@ -105,8 +105,7 @@ function App() {
                 <textarea
                     value={editorContent}
                     onChange={handleEditorChange}
-                    placeholder="Welcome! This is a real-time collaboration demo.Open this page in multiple tabs or share it with a friend and start typing — changes sync instantly across all users in the same room.
-                                You can pause live updates to work independently and resume syncing anytime. If you go offline, your edits are queued locally and automatically synced when you reconnect."
+                    placeholder="Welcome! This is a real-time collaboration demo.Open this page in multiple tabs or share it with a friend and start typing — changes sync instantly across all users in the same room. You can pause live updates to work independently and resume syncing anytime. If you go offline, your edits are queued locally and automatically synced when you reconnect."
                     rows={25}
                     className="collab-editor"
                     disabled={!isConnected}
