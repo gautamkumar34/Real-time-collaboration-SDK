@@ -1,0 +1,69 @@
+# docker-compose.yml
+# Local development stack: PostgreSQL + Redis + CollabDoc Server
+#
+# Usage:
+#   docker compose up -d postgres redis    # Start infra only
+#   docker compose up                      # Start everything including server
+#
+# Environment:
+#   STORE_BACKEND=postgres enables persistence
+#   STORE_BACKEND=memory (default) uses in-memory store
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: collabdoc-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: collabdoc
+      POSTGRES_USER: collabdoc
+      POSTGRES_PASSWORD: collabdoc
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collabdoc"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: collabdoc-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: collabdoc-server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      NODE_ENV: development
+      LOG_LEVEL: debug
+      CORS_ORIGIN: "*"
+      STORE_BACKEND: postgres
+      DATABASE_URL: postgresql://collabdoc:collabdoc@postgres:5432/collabdoc
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

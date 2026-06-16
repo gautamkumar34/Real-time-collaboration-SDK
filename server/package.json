@@ -1,7 +1,7 @@
 {
   "name": "collab-server",
-  "version": "1.0.0",
-  "description": "Socket.IO server for CollabDoc",
+  "version": "2.0.0",
+  "description": "Socket.IO server for CollabDoc — with persistence and multi-instance support",
   "main": "dist/index.js",
   "scripts": {
     "dev": "npx ts-node src/index.ts",
@@ -12,12 +12,16 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@socket.io/redis-adapter": "^8.x.x",
+    "ioredis": "^5.x.x",
+    "pg": "^8.x.x",
     "pino": "^10.3.1",
     "socket.io": "^4.x.x",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^20.x.x",
+    "@types/pg": "^8.x.x",
     "ts-node": "^10.x.x",
     "typescript": "^5.x.x"
   }

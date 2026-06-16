@@ -1,57 +1,63 @@
 import { Server } from 'socket.io';
 import http from 'http';
 import pino from 'pino';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { Redis } from 'ioredis';
+import { loadConfig, type ServerConfig } from './config';
 import { validateRoomId, validateOperation, type ValidatedOperation } from './validation';
 import { RateLimiter } from './rate-limiter';
+import { createStore, SnapshotManager, type DocumentStore } from './store';
 
-// ─── Configuration ────────────────────────────────────────────
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 8080;
-const LOG_LEVEL = process.env.LOG_LEVEL || (process.env.NODE_ENV === 'production' ? 'info' : 'debug');
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-
-/** Comma-separated browser origins. Fails in production if not set. */
-function getCorsOrigin(): string | string[] {
-    const raw = process.env.CORS_ORIGIN?.trim();
-
-    if (IS_PRODUCTION && (!raw || raw === '*')) {
-        logger.error('CORS_ORIGIN must be set to specific origins in production (not "*"). Exiting.');
-        process.exit(1);
-    }
-
-    if (!raw || raw === '*') {
-        return '*';
-    }
-    return raw.split(',').map((s) => s.trim()).filter(Boolean);
-}
+// ─── Load Config ──────────────────────────────────────────────
+const config = loadConfig();
 
 // ─── Logger ───────────────────────────────────────────────────
 const logger = pino({
-    level: LOG_LEVEL,
-    transport: IS_PRODUCTION
-        ? undefined
-        : { target: 'pino/file', options: { destination: 1 } }, // stdout with formatting in dev
+    level: config.logLevel,
+    transport: config.nodeEnv !== 'production'
+        ? { target: 'pino/file', options: { destination: 1 } }
+        : undefined,
 });
 
 // ─── Rate Limiter ─────────────────────────────────────────────
-const rateLimiter = new RateLimiter({
-    maxBurst: 100,
-    refillRate: 50,
-});
+const rateLimiter = new RateLimiter({ maxBurst: 100, refillRate: 50 });
 
-// ─── State (in-memory — replaced by persistence in Phase 2) ──
-const roomStates: Map<string, any> = new Map();
-const roomMetadata: Map<string, { [path: string]: { timestamp: number; actorId: string; version: number } }> = new Map();
+// ─── In-Memory Room State (loaded from store on join) ─────────
+interface RoomState {
+    data: Record<string, any>;
+    metadata: { [path: string]: { timestamp: number; actorId: string; version: number } };
+    loadedFromStore: boolean;
+    opsSinceLoad: number;
+}
+const rooms: Map<string, RoomState> = new Map();
+
+// ─── Store & Snapshot Manager ─────────────────────────────────
+let store: DocumentStore;
+let snapshotManager: SnapshotManager;
 
 // ─── HTTP Server ──────────────────────────────────────────────
-const httpServer = http.createServer((req, res) => {
+const httpServer = http.createServer(async (req, res) => {
     const path = req.url?.split('?')[0] ?? '/';
 
     if (path === '/health' || path === '/healthz') {
-        res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+        // Check store connectivity
+        let storeOk = true;
+        try {
+            await store.listDocuments();
+        } catch {
+            storeOk = false;
+        }
+
+        const status = storeOk ? 200 : 503;
+        res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({
-            status: 'ok',
+            status: storeOk ? 'ok' : 'degraded',
             service: 'collab-server',
-            rooms: roomStates.size,
+            store: {
+                backend: config.store.backend,
+                healthy: storeOk,
+            },
+            rooms: rooms.size,
             rateLimiterBuckets: rateLimiter.size,
         }));
         return;
@@ -64,18 +70,107 @@ const httpServer = http.createServer((req, res) => {
 // ─── Socket.IO ────────────────────────────────────────────────
 const io = new Server(httpServer, {
     cors: {
-        origin: getCorsOrigin(),
+        origin: config.corsOrigin,
         methods: ['GET', 'POST'],
     },
-    // Limit max payload at the transport level (Socket.IO config)
-    maxHttpBufferSize: 128 * 1024, // 128KB — generous to account for encoding overhead
+    maxHttpBufferSize: 128 * 1024,
 });
+
+// ─── Room State Helpers ───────────────────────────────────────
+
+/**
+ * Load or create room state. If the store has a snapshot and/or ops,
+ * reconstruct the document from them. Otherwise create an empty room.
+ */
+async function loadRoom(roomId: string): Promise<RoomState> {
+    const existing = rooms.get(roomId);
+    if (existing) return existing;
+
+    let data: Record<string, any> = {};
+    let metadata: { [path: string]: { timestamp: number; actorId: string; version: number } } = {};
+    let snapshotVersion = 0;
+
+    try {
+        // 1. Load latest snapshot
+        const snapshot = await store.getSnapshot(roomId);
+        if (snapshot) {
+            data = JSON.parse(snapshot.data);
+            metadata = JSON.parse(snapshot.metadata);
+            snapshotVersion = snapshot.version;
+            logger.debug({ roomId, snapshotVersion }, 'Loaded snapshot from store');
+        }
+
+        // 2. Replay ops since snapshot
+        const ops = await store.getOpsSince(roomId, snapshotVersion);
+        if (ops.length > 0) {
+            for (const storedOp of ops) {
+                const op = JSON.parse(storedOp.opData) as ValidatedOperation;
+                applyOpToState(data, metadata, op);
+            }
+            logger.debug({ roomId, replayedOps: ops.length }, 'Replayed ops from store');
+        }
+    } catch (err) {
+        logger.error({ roomId, error: String(err) }, 'Failed to load room from store — starting empty');
+    }
+
+    const room: RoomState = { data, metadata, loadedFromStore: true, opsSinceLoad: 0 };
+    rooms.set(roomId, room);
+
+    // Initialize snapshot manager tracking for this doc
+    snapshotManager.initDoc(roomId, snapshotVersion);
+
+    return room;
+}
+
+/**
+ * Apply an operation to the in-memory state (pure function, no I/O).
+ */
+function applyOpToState(
+    data: Record<string, any>,
+    metadata: { [path: string]: { timestamp: number; actorId: string; version: number } },
+    op: ValidatedOperation
+): boolean {
+    const pathKey = JSON.stringify(op.path);
+    const existingMeta = metadata[pathKey];
+
+    let shouldApply = true;
+    if (existingMeta) {
+        const incomingWinsByTimestamp = op.timestamp > existingMeta.timestamp;
+        const timestampsEqual = op.timestamp === existingMeta.timestamp;
+        const incomingWinsByActorId = timestampsEqual && op.actorId < existingMeta.actorId;
+
+        if (!incomingWinsByTimestamp && !incomingWinsByActorId) {
+            shouldApply = false;
+        }
+    }
+
+    if (shouldApply) {
+        if (op.op === 'set') {
+            deepSet(data, op.path, op.value);
+        } else if (op.op === 'del') {
+            deepDelete(data, op.path);
+        }
+
+        if (op.op === 'del') {
+            delete metadata[pathKey];
+        } else {
+            metadata[pathKey] = {
+                timestamp: op.timestamp,
+                actorId: op.actorId,
+                version: op.version,
+            };
+        }
+    }
+
+    return shouldApply;
+}
+
+// ─── Socket.IO Event Handlers ─────────────────────────────────
 
 io.on('connection', (socket) => {
     logger.info({ socketId: socket.id }, 'Client connected');
 
-    socket.on('join_room', (roomId: unknown) => {
-        // ── Validate roomId ──
+    socket.on('join_room', async (roomId: unknown) => {
         const validation = validateRoomId(roomId);
         if (!validation.ok) {
             logger.warn({ socketId: socket.id, roomId, error: validation.error }, 'Invalid roomId rejected');
@@ -87,21 +182,14 @@ io.on('connection', (socket) => {
         socket.join(validRoomId);
         logger.debug({ socketId: socket.id, roomId: validRoomId }, 'Joined room');
 
-        if (!roomStates.has(validRoomId)) {
-            roomStates.set(validRoomId, {});
-        }
-        if (!roomMetadata.has(validRoomId)) {
-            roomMetadata.set(validRoomId, {});
-        }
+        // Load from store (or use cached in-memory state)
+        const room = await loadRoom(validRoomId);
 
-        const currentDocState = roomStates.get(validRoomId);
-        const currentMetadata = roomMetadata.get(validRoomId);
-
-        socket.emit('initial_state', currentDocState, currentMetadata);
+        socket.emit('initial_state', room.data, room.metadata);
         logger.debug({ socketId: socket.id, roomId: validRoomId }, 'Sent initial state');
     });
 
-    socket.on('operation', (roomId: unknown, operation: unknown) => {
+    socket.on('operation', async (roomId: unknown, operation: unknown) => {
         // ── Validate roomId ──
         const roomValidation = validateRoomId(roomId);
         if (!roomValidation.ok) {
@@ -113,14 +201,12 @@ io.on('connection', (socket) => {
 
         // ── Rate limit ──
         if (!rateLimiter.consume(socket.id)) {
-            logger.warn({ socketId: socket.id, roomId: validRoomId }, 'Rate limited — too many ops/sec');
+            logger.warn({ socketId: socket.id, roomId: validRoomId }, 'Rate limited');
             socket.emit('error_msg', { code: 'RATE_LIMITED', message: 'Too many operations per second' });
-            // Disconnect on sustained abuse (3 consecutive rate-limit hits could trigger this)
-            // For now, just reject the op. Phase 4 adds per-tenant quotas.
             return;
         }
 
-        // ── Validate operation payload ──
+        // ── Validate operation ──
         const opValidation = validateOperation(operation);
         if (!opValidation.ok) {
             logger.warn({ socketId: socket.id, roomId: validRoomId, error: opValidation.error }, 'Invalid operation rejected');
@@ -129,50 +215,35 @@ io.on('connection', (socket) => {
         }
         const validOp = opValidation.data;
 
-        // ── Apply LWW ──
-        const currentRoomState = roomStates.get(validRoomId) || {};
-        const currentRoomMetadata = roomMetadata.get(validRoomId) || {};
-        const pathKey = JSON.stringify(validOp.path);
-        const existingMetadata = currentRoomMetadata[pathKey];
-
-        let applyServerOp = true;
-
-        if (existingMetadata) {
-            const incomingWinsByTimestamp = validOp.timestamp > existingMetadata.timestamp;
-            const timestampsAreEqual = validOp.timestamp === existingMetadata.timestamp;
-            const incomingWinsByActorId = timestampsAreEqual && validOp.actorId < existingMetadata.actorId;
-
-            if (!incomingWinsByTimestamp && !incomingWinsByActorId) {
-                applyServerOp = false;
-            }
+        // ── Get room state (should already be loaded from join_room) ──
+        let room = rooms.get(validRoomId);
+        if (!room) {
+            room = await loadRoom(validRoomId);
         }
 
-        if (applyServerOp) {
-            // ── Mutate state ──
-            if (validOp.op === 'set') {
-                deepSet(currentRoomState, validOp.path, validOp.value);
-            } else if (validOp.op === 'del') {
-                deepDelete(currentRoomState, validOp.path);
-            }
-            roomStates.set(validRoomId, currentRoomState);
+        // ── Apply LWW ──
+        const applied = applyOpToState(room.data, room.metadata, validOp);
 
-            // ── Update metadata ──
-            if (validOp.op === 'del') {
-                delete currentRoomMetadata[pathKey];
-            } else {
-                currentRoomMetadata[pathKey] = {
-                    timestamp: validOp.timestamp,
-                    actorId: validOp.actorId,
-                    version: validOp.version,
-                };
+        if (applied) {
+            // ── Persist to op log (async, best-effort) ──
+            try {
+                await store.appendOps(validRoomId, [{ opData: JSON.stringify(validOp) }]);
+                room.opsSinceLoad += 1;
+            } catch (err) {
+                // Log but don't fail the broadcast — op is in memory.
+                // Worst case: op lost on crash before next snapshot.
+                logger.error({ roomId: validRoomId, opId: validOp.id, error: String(err) }, 'Failed to persist op');
             }
-            roomMetadata.set(validRoomId, currentRoomMetadata);
 
-            // ── Broadcast ONLY accepted ops (FIX: was outside if-block) ──
+            // ── Notify snapshot manager ──
+            snapshotManager.onOpApplied(validRoomId).catch(err => {
+                logger.error({ roomId: validRoomId, error: String(err) }, 'Snapshot trigger failed');
+            });
+
+            // ── Broadcast to all clients in room ──
             io.to(validRoomId).emit('operation', validRoomId, validOp);
-            logger.debug({ roomId: validRoomId, opId: validOp.id, op: validOp.op }, 'Op applied and broadcast');
+            logger.debug({ roomId: validRoomId, opId: validOp.id, op: validOp.op }, 'Op applied, persisted, and broadcast');
         } else {
-            // ── Rejected by LWW — notify sender only ──
             socket.emit('op_rejected', {
                 opId: validOp.id,
                 reason: 'LWW conflict: existing value wins',
@@ -191,28 +262,113 @@ io.on('connection', (socket) => {
     });
 });
 
-// ─── Graceful shutdown ────────────────────────────────────────
-function shutdown(signal: string) {
-    logger.info({ signal }, 'Received shutdown signal — draining connections');
+// ─── Startup ──────────────────────────────────────────────────
+
+async function startup() {
+    // 1. Initialize store
+    store = createStore(config);
+    await store.initialize();
+    logger.info({ backend: config.store.backend }, 'Store initialized');
+
+    // 2. Initialize snapshot manager
+    snapshotManager = new SnapshotManager(
+        store,
+        {
+            snapshotEveryNOps: config.store.snapshotEveryNOps,
+            snapshotAfterSeconds: config.store.snapshotAfterSeconds,
+        },
+        logger,
+        (docId: string) => {
+            const room = rooms.get(docId);
+            if (!room) return null;
+            return { data: room.data, metadata: room.metadata };
+        }
+    );
+    snapshotManager.start();
+    logger.info('Snapshot manager started');
+
+    // 3. Setup Redis adapter (if REDIS_URL is configured and not memory-only mode)
+    if (config.redis.url && config.store.backend !== 'memory') {
+        try {
+            const pubClient = new Redis(config.redis.url);
+            const subClient = pubClient.duplicate();
+
+            await Promise.all([
+                new Promise<void>((resolve, reject) => {
+                    pubClient.once('ready', resolve);
+                    pubClient.once('error', reject);
+                }),
+                new Promise<void>((resolve, reject) => {
+                    subClient.once('ready', resolve);
+                    subClient.once('error', reject);
+                }),
+            ]);
+
+            io.adapter(createAdapter(pubClient, subClient));
+            logger.info({ redisUrl: config.redis.url }, 'Redis adapter connected — multi-instance broadcast enabled');
+        } catch (err) {
+            logger.warn({ error: String(err) }, 'Redis adapter failed to connect — running in single-instance mode');
+        }
+    }
+
+    // 4. Start HTTP server
+    httpServer.listen(config.port, '0.0.0.0', () => {
+        logger.info({
+            port: config.port,
+            cors: config.corsOrigin,
+            store: config.store.backend,
+            logLevel: config.logLevel,
+        }, 'CollabDoc server started');
+    });
+}
+
+// ─── Graceful Shutdown ────────────────────────────────────────
+
+async function shutdown(signal: string) {
+    logger.info({ signal }, 'Received shutdown signal — draining');
+
+    // Stop snapshot timer
+    snapshotManager.stop();
+
+    // Flush all dirty snapshots to store
+    try {
+        await snapshotManager.flushAll();
+        logger.info('All dirty snapshots flushed');
+    } catch (err) {
+        logger.error({ error: String(err) }, 'Failed to flush snapshots on shutdown');
+    }
+
+    // Close Socket.IO
     io.close(() => {
         logger.info('All connections closed');
-        httpServer.close(() => {
-            logger.info('HTTP server closed — exiting');
-            process.exit(0);
+
+        // Close store
+        store.close().then(() => {
+            logger.info('Store closed');
+            httpServer.close(() => {
+                logger.info('HTTP server closed — exiting');
+                process.exit(0);
+            });
+        }).catch(err => {
+            logger.error({ error: String(err) }, 'Error closing store');
+            process.exit(1);
         });
     });
-    // Force exit after 10s if graceful drain hangs
+
+    // Force exit after 15s
     setTimeout(() => {
         logger.warn('Graceful shutdown timed out — forcing exit');
         process.exit(1);
-    }, 10_000);
+    }, 15_000);
 }
+
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
 // ─── Start ────────────────────────────────────────────────────
-httpServer.listen(PORT, '0.0.0.0', () => {
-    logger.info({ port: PORT, cors: getCorsOrigin(), logLevel: LOG_LEVEL }, 'CollabDoc server started');
+startup().catch(err => {
+    logger.fatal({ error: String(err) }, 'Failed to start server');
+    process.exit(1);
 });
 
 // ─── Deep path helpers ────────────────────────────────────────

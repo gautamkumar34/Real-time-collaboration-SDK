@@ -1,6 +1,31 @@
-node_modules
-dist
-build
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Environment files (secrets!)
+.env
+.env.local
+.env.*.local
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Logs
 *.log
-__tests__
+npm-debug.log*
+
+# Editor
+.idea/
+*.sw?
+*.swp
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Docker volumes (if mounted locally)
+postgres_data/
+redis_data/
