@@ -7,6 +7,7 @@ import { loadConfig, type ServerConfig } from './config';
 import { RateLimiter } from './rate-limiter';
 import { createStore, SnapshotManager, type DocumentStore } from './store';
 import { YjsDocManager } from './crdt/yjs-doc-manager';
+import { signToken, verifyToken, canWrite, canRead, type TokenPayload } from './auth/jwt';
 import * as Y from 'yjs';
 
 // ─── Load Config ──────────────────────────────────────────────
@@ -59,18 +60,25 @@ const httpServer = http.createServer(async (req, res) => {
         return;
     }
 
-    // ── Token Endpoint (Phase 4) ──
+    // ── Token Endpoint ──
     if (path === '/api/auth/token' && req.method === 'POST') {
-        // Minimal token endpoint — read body, issue JWT
-        // For now, just return a mock token (real JWT in Phase 4)
         let body = '';
         req.on('data', chunk => { body += chunk; });
         req.on('end', () => {
             try {
                 const { roomId, userId, permission } = JSON.parse(body);
-                // In Phase 4, this signs a real JWT. For now, pass-through.
+                if (!roomId || !userId) {
+                    res.writeHead(400, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'roomId and userId required' }));
+                    return;
+                }
+                const token = signToken({
+                    sub: userId,
+                    room: roomId,
+                    perm: permission === 'read' ? 'read' : 'write',
+                });
                 res.writeHead(200, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ token: 'demo-token', roomId, userId, permission }));
+                res.end(JSON.stringify({ token }));
             } catch {
                 res.writeHead(400, { 'Content-Type': 'application/json' });
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
@@ -90,6 +98,31 @@ const io = new Server(httpServer, {
         methods: ['GET', 'POST'],
     },
     maxHttpBufferSize: 512 * 1024, // 512KB — Yjs updates can be larger
+});
+
+// ─── Auth Middleware ──────────────────────────────────────────
+// If JWT_SECRET is set, require valid token. Otherwise, allow all (dev mode).
+const authEnabled = !!process.env.JWT_SECRET;
+
+io.use((socket, next) => {
+    if (!authEnabled) {
+        // Dev mode — no auth required
+        (socket.data as any).user = { sub: `anon-${socket.id}`, room: '*', perm: 'write' as const };
+        return next();
+    }
+
+    const token = socket.handshake.auth?.token as string | undefined;
+    if (!token) {
+        return next(new Error('AUTH_REQUIRED: No token provided'));
+    }
+
+    const payload = verifyToken(token);
+    if (!payload) {
+        return next(new Error('AUTH_INVALID: Token verification failed'));
+    }
+
+    (socket.data as any).user = payload;
+    next();
 });
 
 // ─── Room Loading ─────────────────────────────────────────────
@@ -146,9 +179,16 @@ io.on('connection', (socket) => {
             return;
         }
 
+        // Permission check: can this user access this room?
+        const user = (socket.data as any).user as TokenPayload;
+        if (authEnabled && !canRead(user, roomId)) {
+            socket.emit('error_msg', { code: 'FORBIDDEN', message: 'No access to this room' });
+            return;
+        }
+
         socket.join(roomId);
         await ensureDocLoaded(roomId);
-        logger.debug({ socketId: socket.id, roomId }, 'Joined room');
+        logger.debug({ socketId: socket.id, roomId, userId: user.sub }, 'Joined room');
     });
 
     // ── Yjs Sync Step 1: Client sends state vector ──
@@ -168,6 +208,13 @@ io.on('connection', (socket) => {
     socket.on('yjs_update', async (roomId: unknown, update: unknown) => {
         if (typeof roomId !== 'string') return;
         if (!Array.isArray(update)) return;
+
+        // Permission check: only writers can send updates
+        const user = (socket.data as any).user as TokenPayload;
+        if (authEnabled && !canWrite(user, roomId)) {
+            socket.emit('error_msg', { code: 'FORBIDDEN', message: 'Read-only access' });
+            return;
+        }
 
         // Rate limit
         if (!rateLimiter.consume(socket.id)) {
