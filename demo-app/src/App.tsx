@@ -1,125 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { useCollabDoc } from '../../sdk/src/react/useCollabDoc';
-import logo from './assets/icons8-docs-50 (1).png';
+import { Routes, Route } from 'react-router-dom';
+import LandingLayout from './landing/LandingLayout';
+import HeroPage from './landing/HeroPage';
+import FeaturesPage from './landing/FeaturesPage';
+import PricingPage from './landing/PricingPage';
+import DemoPlayground from './landing/DemoPlayground';
+import AppLayout from './app/AppLayout';
+import Dashboard from './app/Dashboard';
+import DocumentEditor from './app/DocumentEditor';
 import './App.css';
 
 function App() {
-    const roomId = 'my-first-collab-document';
-    const [actorId] = useState(() => `client-${Math.random().toString(36).substring(2, 9)}`);
-    const serverUrl =
-        import.meta.env.VITE_SERVER_URL?.trim() || 'http://localhost:8080';
+  return (
+    <Routes>
+      {/* Public landing pages */}
+      <Route element={<LandingLayout />}>
+        <Route path="/" element={<HeroPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
+        <Route path="/pricing" element={<PricingPage />} />
+        <Route path="/demo" element={<DemoPlayground />} />
+      </Route>
 
-    const {
-        docState,
-        doc,
-        isConnected,
-        isSynced,
-        isLive,
-        pause,
-        resume,
-        error
-    } = useCollabDoc({ roomId, actorId, serverUrl });
-
-    const [editorContent, setEditorContent] = useState<string>('');
-
-    useEffect(() => {
-        const currentDocContent = docState?.content || '';
-        if (editorContent !== currentDocContent) {
-            setEditorContent(currentDocContent);
-        }
-    }, [docState]); 
-
-    const handleEditorChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const newContent = e.target.value;
-        setEditorContent(newContent); // Update local state immediately for responsiveness
-
-        if (doc) {
-            doc.set(['content'], newContent);
-        }
-    };
-
-    const handleToggleLiveMode = () => {
-        if (!doc) return;
-        if (isLive) {
-            pause();
-        } else {
-            resume();
-        }
-    };
-
-    if (error) {
-        return (
-            <div className="container">
-                <h1>Collab Document Demo</h1>
-                <p className="status error">Error: {error.message || 'An unknown error occurred.'}</p>
-                <p>Please ensure the server is running at {serverUrl}</p>
-            </div>
-        );
-    }
-
-    if (!isSynced) {
-        return (
-            <div className="container">
-                <h1>Collab Document Demo</h1>
-                <p>Client ID: {actorId}</p>
-                <p className="status connecting">Connecting to document '{roomId}'...</p>
-                <p className="status connecting">Status: {isConnected ? 'Connected, Syncing...' : 'Disconnected'}</p>
-            </div>
-        );
-    }
-
-    return (
-        <div className="container">
-          <div className='Header'>
-            <div className='logo'>
-                <img src= {logo} alt="" />
-                <h2>CollabDoc</h2>
-            </div>
-            <div className="status-bar">
-                <span className={`status ${isConnected ? 'connected' : 'disconnected'}`}>
-                    Connection: {isConnected ? 'Online' : 'Offline'}
-                </span>
-                <span className={`status ${isSynced ? 'synced' : 'unsynced'}`}>
-                    Sync: {isSynced ? 'Synced' : 'Not Synced'}
-                </span>
-                <span className={`status ${isLive ? 'live-on' : 'live-off'}`}>
-                    Live Mode: {isLive ? 'ON' : 'OFF (Paused)'}
-                </span>
-                <div className="controls">
-                    <button
-                      onClick={handleToggleLiveMode}
-                      disabled={!isConnected}
-                      className={`toggle-button ${isLive ? 'pause' : 'resume'}`}
-                    >
-                      {isLive ? 'Pause Live Updates' : 'Resume Live Updates'}
-                      </button>
-                </div>
-            </div>
-
-          </div>
-            <p>Client ID: <span className="actor-id">{actorId}</span></p>
-            <p>Room: <span className="room-id">{roomId}</span></p>
-
-            <div className="editor-section">
-                <h2>Document Content</h2>
-                <textarea
-                    value={editorContent}
-                    onChange={handleEditorChange}
-                    placeholder="Welcome! This is a real-time collaboration demo.Open this page in multiple tabs or share it with a friend and start typing — changes sync instantly across all users in the same room. You can pause live updates to work independently and resume syncing anytime. If you go offline, your edits are queued locally and automatically synced when you reconnect."
-                    rows={25}
-                    className="collab-editor"
-                    disabled={!isConnected}
-                />
-            </div>
-
-            <div className="debug-section">
-                <h2>Raw Document State (JSON)</h2>
-                <pre className="debug-json">
-                    {JSON.stringify(docState, null, 2)}
-                </pre>
-            </div>
-        </div>
-    );
+      {/* App workspace (demo — no real auth) */}
+      <Route path="/app" element={<AppLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="doc/:id" element={<DocumentEditor />} />
+      </Route>
+    </Routes>
+  );
 }
 
 export default App;

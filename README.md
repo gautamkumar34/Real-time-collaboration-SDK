@@ -1,265 +1,344 @@
-# CollabDoc SDK: Real-time Document Collaboration
+# ⚡ CollabDoc — Real-time Collaboration SDK
+
+**Open-source, self-hostable SDK for adding multiplayer editing to any app.**
+
+Built on **Yjs CRDTs** + **Socket.IO** — no conflicts, no vendor lock-in.
 
 ## 🌐 Live Demo
-https://real-time-collaboration-sdk-demo-ap.vercel.app/
 
-## ✨ Introduction
+**https://real-time-collaboration-sdk-demo-ap.vercel.app/**
 
-Welcome to `CollabDoc SDK`, a lightweight and highly efficient Software Development Kit designed for building real-time, collaborative document applications. This SDK provides the core infrastructure to enable multiple users to edit a shared document simultaneously, with changes instantly synchronized across all connected clients.
+## ✨ Why CollabDoc?
 
-Whether you're building a simple collaborative note-taking app, a shared code editor, or a complex document management system, `CollabDoc SDK` offers a robust foundation for real-time data synchronization.
+| Feature | CollabDoc | Liveblocks | Yjs (raw) |
+|---------|-----------|------------|-----------|
+| CRDT engine | ✅ Yjs | Proprietary | ✅ |
+| Self-hostable | ✅ | ❌ | Manual setup |
+| React hook | ✅ | ✅ | ❌ |
+| Persistence | ✅ Postgres | Cloud only | Manual |
+| Auth | ✅ JWT | ✅ | Manual |
+| Presence/Cursors | ✅ | ✅ | Manual |
+| Open source | ✅ MIT | Freemium | ✅ |
+| Setup time | 3 lines | 5 min | Hours |
 
-## 💡 Why CollabDoc SDK? (Uniqueness)
+## 🚀 Quick Start
 
-In a world of complex collaborative solutions, `CollabDoc SDK` stands out by offering:
-
-* **Simplicity & Focus:** It provides the essential real-time collaboration primitives without unnecessary bloat, making it easy to understand, integrate, and extend.
-* **Transparent Conflict Resolution:** The LWW strategy is straightforward and effective for many document types, ensuring predictable outcomes for concurrent edits based on timestamp and actor ID.
-* **Developer-Friendly API:** The `CollabDoc` class and `useCollabDoc` React hook are designed for ease of use, reducing the boilerplate typically associated with real-time systems.
-* **Full-Stack Example:** The project includes a complete server and a demo React app, demonstrating a fully functional collaborative environment from end-to-end. This jumpstarts your development process.
-* **Self-Contained Ecosystem:** Everything you need to get started with a basic collaborative document is within this single repository.
-
-## 📦 Project Structure
-
-This project is organized as a monorepo using npm workspaces, containing three main packages:
-
-```bash
-
-sdk-project/
-├── server/          # Node.js Socket.IO server for real-time communication and document state management.
-│   └── src/index.ts
-├── sdk/             # The core CollabDoc SDK, a TypeScript library.
-│   ├── src/
-│   │   ├── collab-doc.ts      # Core CollabDoc class with connection, state, and operation logic.
-│   │   └── react/useCollabDoc.ts # React hook for easy integration.
-│   └── package.json
-└── demo-app/        # A simple React application demonstrating the SDK's usage.
-├── src/
-│   └── App.tsx          # The main demo component.
-└── package.json
-
-```
-
-## 🚀 Features
-
-- **Real-time Synchronization:** Instantly propagate changes to all connected clients.
-- **Powered by [Socket.IO](http://socket.io/):** Utilizes [Socket.IO](http://socket.io/) for robust, bidirectional, and low-latency communication between clients and the server.
-- **Last-Writer-Wins (LWW) Conflict Resolution:** Built-in server-side and client-side logic to intelligently resolve concurrent edits, ensuring data consistency.
-- **Operational Transformation (OT) Inspired:** While not a full OT implementation, it leverages operational concepts for efficient updates.
-- **Offline Support with Operation Queueing:** Users can continue making changes even when disconnected; operations are queued and sent when the connection is re-established.
-- **React Hook Integration:** A convenient `useCollabDoc` React hook simplifies integration into React applications, managing state and lifecycle automatically.
-- **Live Mode Toggle:** Clients can pause/resume live updates from the server, allowing for focused individual work or controlled broadcasting of changes.
-- **Modular & Extensible:** Built as a monorepo, separating the core SDK, server, and demo app for clear development and easy extension.
-
-## 🚀 Getting Started
-
-Follow these steps to get the `CollabDoc SDK` server and demo application up and running on your local machine.
-
-### Prerequisites
-
-* Node.js (LTS version recommended)
-* npm (comes with Node.js)
-
-### 1. Clone the Repository
+### 1. Install & Run
 
 ```bash
 git clone https://github.com/gautamkumar34/Real-time-collaboration-SDK.git
 cd sdk-project
-```
-
-### 2. Install Dependencies
-
-Navigate to the root of the `sdk-project` and install dependencies for all workspaces:
-
-```bash
 npm install
+
+# Terminal 1 — Server
+cd server && npm run dev
+
+# Terminal 2 — Demo App
+cd demo-app && npm run dev
 ```
 
-### 3. Build the SDK
+Open `http://localhost:5173` → Landing page with live demo.
 
-The SDK is a TypeScript library and needs to be compiled before use.
+### 2. Use in Your App (3 lines)
 
-```bash
-cd sdk
-npm run build
-cd .. # Go back to sdk-project root
-```
+```typescript
+import { CollabDoc } from 'collab-doc';
 
-### 4. Start the Server
+const doc = new CollabDoc({
+  roomId: 'my-document',
+  serverUrl: 'ws://localhost:8080',
+  user: { name: 'Alice', color: '#7c5cfc' },
+});
 
-Navigate to the `server` directory and start the real-time server:
-
-```bash
-cd server
-npm start
-# Server will typically run on http://localhost:8080
-cd .. # Go back to sdk-project root
-```
-
-Keep this terminal window open, as the server needs to be running.
-
-### 5. Start the Demo Application
-
-Open a **new terminal window**, navigate to the `demo-app` directory, and start the React development server:
-
-```bash
-cd demo-app
-npm start
-```
-
-This will usually open the application in your browser at `http://localhost:5173`.
-
-### 6. Interact with the Demo
-
-- Open `http://localhost:5173` in your browser.
-- Try typing in the "Document Content" textarea.
-- Open another tab or browser window to the same URL (`http://localhost:5173`). You'll see changes synchronize in real-time!
-- Experiment with the "Pause Live Updates" button to see how client-side buffering works.
-- Observe the "Raw Document State (JSON)" section to see the underlying data structure update.
-
-## 🛠️ SDK Usage (API)
-
-The core of the SDK is the `CollabDoc` class and its React hook wrapper, `useCollabDoc`.
-
-### `CollabDoc` Class (Core SDK)
-
-```tsx
-
-import CollabDoc, { Path, CollabDocConfig } from 'collab-doc';
-
-const config: CollabDocConfig = {
-    roomId: 'my-shared-doc',
-    actorId: 'user-abc',
-    serverUrl: 'http://localhost:8080'
-};
-
-const doc = new CollabDoc(config);
-
-// Connect to the server
 doc.connect();
 
-// Set a value at a specific path
-// Path is an array of strings/numbers, e.g., ['content'], ['users', 0, 'name']
-doc.set(['content'], 'Hello, world!');
+// Key-value operations (backed by Yjs CRDT)
+doc.set(['title'], 'Hello World');
+doc.set(['settings', 'theme'], 'dark');
+console.log(doc.get(['title'])); // 'Hello World'
+doc.delete(['settings', 'theme']);
 
-// Delete a value at a specific path
-doc.delete(['oldData']);
+// Rich text (Yjs Y.Text)
+const text = doc.getText('content');
+text.insert(0, 'Hello ');
+text.insert(6, 'World');
 
-// Get the current document state (returns a deep copy)
-const currentState = doc.getDocumentState(); // { content: 'Hello, world!' }
-
-// Event listeners
-doc.on('change', (payload: { path: Path; action: 'set' | 'del'; value?: any; isRemote: boolean }) => {
-    console.log('Operation applied:', payload);
-    console.log('Current state:', doc.getDocumentState());
-});
-doc.on('connect', () => console.log('Connected to server.'));
-doc.on('disconnect', (reason: string) => console.log('Disconnected:', reason));
-doc.on('synced', () => console.log('Document synced with server.'));
-doc.on('error', (err: any) => console.error('SDK Error:', err?.message ?? err));
-doc.on('pause', () => console.log('Live updates paused.'));
-doc.on('resume', () => console.log('Live updates resumed.'));
-
-// Control live updates
-doc.pause();   // Stop sending/receiving real-time updates immediately
-doc.resume();  // Resume real-time updates and process any queued operations
-
-// Disconnect from the server
-doc.disconnect();
+// Full document snapshot
+console.log(doc.getDocumentState()); // { title: 'Hello World' }
 ```
 
-### `useCollabDoc` React Hook
-
-This hook simplifies using `CollabDoc` in React components, managing state, connection, and event listeners.
+### 3. React Hook
 
 ```tsx
+import { useCollabDoc } from 'collab-doc/react';
 
-import React from 'react';
-// In this monorepo, the demo imports the hook directly from source:
-import { useCollabDoc } from '../../sdk/src/react/useCollabDoc';
+function Editor() {
+  const { doc, docState, isConnected, isSynced, presence, error } = useCollabDoc({
+    roomId: 'my-document',
+    serverUrl: 'ws://localhost:8080',
+    user: { name: 'Alice', color: '#7c5cfc' },
+  });
 
-function MyCollaborativeEditor() {
-    const {
-        docState,    // The current document state (React state)
-        doc,         // The underlying CollabDoc instance
-        isConnected, // Boolean: true if connected to server
-        isSynced,    // Boolean: true if initial state received and synced
-        isLive,      // Boolean: true if live updates are active
-        pause,       // Function to pause live updates
-        resume,      // Function to resume live updates
-        error        // Error object if any connection/SDK error occurs
-    } = useCollabDoc({
-        roomId: 'my-first-collab-document',
-        actorId: `client-${Math.random().toString(36).substring(2, 9)}`,
-        serverUrl: 'http://localhost:8080'
-    });
+  return (
+    <div>
+      <p>{isConnected ? '🟢 Connected' : '🔴 Disconnected'}</p>
+      <p>{isSynced ? '✅ Synced' : '⏳ Syncing...'}</p>
 
-    // Example of using docState and doc instance
-    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        if (doc) {
-            doc.set(['content'], e.target.value);
-        }
-    };
+      {/* Presence: who's online */}
+      <div>
+        {[...presence.values()].map(user => (
+          <span key={user.clientId} style={{ color: user.user?.color }}>
+            {user.user?.name}
+          </span>
+        ))}
+      </div>
 
-    return (
-        <div>
-            <p>Connection: {isConnected ? 'Online' : 'Offline'}</p>
-            <p>Sync: {isSynced ? 'Synced' : 'Not Synced'}</p>
-            <p>Live Mode: {isLive ? 'ON' : 'OFF'}</p>
-            <button onClick={isLive ? pause : resume}>
-                {isLive ? 'Pause Live Updates' : 'Resume Live Updates'}
-            </button>
-            <textarea
-                value={docState.content || ''}
-                onChange={handleTextChange}
-                disabled={!isConnected || !isSynced}
-            />
-            <pre>{JSON.stringify(docState, null, 2)}</pre>
-            {error && <p style={{ color: 'red' }}>Error: {error.message}</p>}
-        </div>
-    );
+      {/* Collaborative input */}
+      <textarea
+        value={docState.content || ''}
+        onChange={e => doc?.set(['content'], e.target.value)}
+        disabled={!isSynced}
+      />
+
+      {error && <p style={{ color: 'red' }}>{error.message}</p>}
+    </div>
+  );
 }
 ```
 
-## ⚙️ How It Works (Brief Technical Overview)
+## 📦 Project Structure
 
-The `CollabDoc SDK` leverages `Socket.IO` for its real-time communication.
+```
+sdk-project/
+├── sdk/                          # Core TypeScript SDK
+│   ├── src/
+│   │   ├── collab-doc.ts         # Main CollabDoc class (Yjs-backed)
+│   │   ├── y-provider.ts         # Socket.IO ↔ Yjs sync provider + Awareness
+│   │   └── react/useCollabDoc.ts # React hook
+│   └── __tests__/                # 17 tests (Jest)
+│
+├── server/                       # Node.js collaboration server
+│   ├── src/
+│   │   ├── index.ts              # Socket.IO server with Yjs sync protocol
+│   │   ├── crdt/
+│   │   │   └── yjs-doc-manager.ts # One Y.Doc per room, in-memory
+│   │   ├── auth/
+│   │   │   └── jwt.ts            # JWT sign/verify/permissions
+│   │   ├── store/
+│   │   │   ├── memory-store.ts   # In-memory store (dev)
+│   │   │   ├── pg-store.ts       # PostgreSQL store (production)
+│   │   │   └── snapshot-manager.ts # Auto-snapshot after N ops
+│   │   ├── rate-limiter.ts       # Token bucket rate limiter
+│   │   └── config.ts             # Environment-based config
+│   └── docker-compose.yml        # Postgres + Redis
+│
+├── demo-app/                     # React demo application
+│   └── src/
+│       ├── landing/              # Public pages (Hero, Features, Pricing, Demo)
+│       └── app/                  # Workspace (Dashboard, Document Editor)
+│
+└── package.json                  # Workspace root
+```
 
-1. **Connection:** Clients connect to the `Node.js` server via Socket.IO and join a specific `roomId`.
-2. **Initial Sync:** Upon joining, the server sends the current full document state and its associated metadata (last updated timestamp, actor ID, version for each path) to the new client.
-3. **Operations:** Changes to the document (e.g., `set`, `delete`) are encapsulated as "operations" with a `path`, `value`, `timestamp`, `actorId`, and `version`.
-4. **Local Application:** Operations are applied locally immediately for instant UI feedback.
-5. **Server Broadcast:** Operations are sent to the server, which applies them to its authoritative state after LWW conflict resolution, then broadcasts the operation to all other clients in the same room.
-6. **Remote Application:** Clients receive operations from the server and apply them to their local document state, again using LWW to handle potential conflicts (e.g., if an offline client made a change that conflicts with a server-received change).
+## 🏗️ Architecture
 
-### Conflict Resolution: Last-Writer-Wins (LWW)
+```
+┌─────────────────┐        WebSocket         ┌──────────────────────┐
+│   Your App      │◄──────────────────────────►│   CollabDoc Server   │
+│   (CollabDoc    │   Yjs binary updates      │   (Socket.IO +       │
+│    SDK)         │   + Awareness             │    YjsDocManager)    │
+└─────────────────┘                           └──────────┬───────────┘
+                                                         │
+                                              ┌──────────┴───────────┐
+                                              │                      │
+                                        ┌─────┴─────┐        ┌──────┴──────┐
+                                        │ PostgreSQL │        │    Redis    │
+                                        │ (Snapshots │        │  (Pub/Sub   │
+                                        │  + Op Log) │        │   Adapter)  │
+                                        └───────────┘        └─────────────┘
+```
 
-Both the client and server use a Last-Writer-Wins strategy. When an operation is received, it's compared to the existing value's metadata at that path:
+### Sync Protocol
 
-- The operation with the **most recent `timestamp`** wins.
-- If timestamps are identical, the operation with the **lexicographically smallest `actorId`** wins (as a tie-breaker).
-This ensures deterministic conflict resolution across all clients and the server.
+```
+Client                              Server
+  │                                   │
+  ├─── join_room(roomId) ────────────►│  Load Y.Doc from snapshot + replay ops
+  ├─── yjs_sync_step1(stateVector) ──►│
+  │◄── yjs_sync_step2(diff) ─────────┤  Send missing updates
+  │                                   │
+  ├─── yjs_update(binary) ──────────►│  Apply → Persist → Broadcast
+  │◄── yjs_update(binary) ───────────┤  From other clients
+  │                                   │
+  ├─── awareness_update(presence) ──►│  Broadcast cursors/selection
+  │◄── awareness_update(presence) ───┤
+```
 
-## 🛣️ Future Enhancements (Roadmap)
+## 🔐 Authentication
 
-- **Rich Text Editor Integration:** Native support or examples for popular rich text libraries (e.g., Quill, Slate).
-- **Access Control:** Implement authentication and authorization for rooms and document paths.
-- **History & Undo/Redo:** Store a history of operations to enable advanced collaboration features.
-- **Presence (Cursors/Selections):** Show other users' cursors and selections in real-time.
-- **Diffing & Patching:** More granular operations to send only the differences, reducing bandwidth.
-- **Database Persistence:** Integration with databases (e.g., MongoDB, PostgreSQL) for durable storage of document states.
-- **Horizontal Scaling:** Strategies for scaling the server for a large number of concurrent users and documents.
-- **Optimistic Locking/Versioning:** More advanced conflict resolution strategies.
+Auth is **optional** — disabled by default for development. Enable by setting `JWT_SECRET`:
+
+```bash
+# .env
+JWT_SECRET=your-secret-key-here
+```
+
+### Token Flow
+
+```bash
+# 1. Request a token from the server
+curl -X POST http://localhost:8080/api/auth/token \
+  -H "Content-Type: application/json" \
+  -d '{"userId": "alice", "roomId": "my-doc", "permission": "write"}'
+
+# Response: { "token": "eyJhbG..." }
+
+# 2. Pass token when connecting
+const doc = new CollabDoc({
+  roomId: 'my-doc',
+  serverUrl: 'ws://localhost:8080',
+  token: 'eyJhbG...',  // JWT token
+  user: { name: 'Alice', color: '#7c5cfc' },
+});
+```
+
+### Token Payload
+
+```json
+{
+  "sub": "alice",          // User ID
+  "room": "my-doc",       // Room scope ("*" for all rooms)
+  "perm": "write",        // "read" or "write"
+  "exp": 1750000000       // Expiry (24h default)
+}
+```
+
+**Permissions:**
+- `read` — Can join room, receive updates, see presence
+- `write` — Everything in `read` + can send updates
+
+## 💾 Persistence
+
+### In-Memory (default, dev)
+
+No setup needed. Data lost on server restart.
+
+### PostgreSQL (production)
+
+```bash
+# 1. Start Postgres + Redis
+cd server && docker-compose up -d
+
+# 2. Configure
+STORE_BACKEND=postgres
+DATABASE_URL=postgres://collab:collab@localhost:5432/collabdoc
+REDIS_URL=redis://localhost:6379
+
+# 3. Tables are auto-created on startup
+```
+
+### How Persistence Works
+
+1. Every `yjs_update` is appended to the **op log** (base64-encoded binary)
+2. After N ops (default: 50), a **snapshot** is taken (full Yjs state encoded as binary)
+3. On room load: latest snapshot + replay remaining ops → fully reconstructed Y.Doc
+
+## 🧪 Testing
+
+```bash
+cd sdk && npm test
+```
+
+```
+PASS __tests__/collab-doc.test.ts
+  CollabDoc (Yjs-backed)
+    ✓ should set and get values locally
+    ✓ should delete values
+    ✓ should handle nested paths
+    ✓ should return undefined for non-existent paths
+    ✓ should handle object values
+    ✓ should overwrite existing values
+    ✓ should connect and join room
+    ✓ should emit synced after sync_step2
+    ✓ should emit disconnect event
+    ✓ should return full document state as JSON
+    ✓ should emit change events
+    ✓ should converge when receiving remote Yjs updates
+    ✓ should send local updates to server
+    ✓ should provide Y.Text for collaborative text editing
+    ✓ should expose the underlying Y.Doc
+    ✓ should handle awareness updates from remote clients
+    ✓ should set cursor position
+
+Tests: 17 passed, 17 total
+```
+
+## 🛠️ Configuration
+
+All configuration via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `8080` | Server port |
+| `CORS_ORIGIN` | `*` | Allowed origins |
+| `STORE_BACKEND` | `memory` | `memory` or `postgres` |
+| `DATABASE_URL` | — | Postgres connection string |
+| `REDIS_URL` | — | Redis URL (enables multi-instance) |
+| `JWT_SECRET` | — | Set to enable auth |
+| `JWT_EXPIRY_SECONDS` | `86400` | Token TTL (24h) |
+| `SNAPSHOT_EVERY_N_OPS` | `50` | Ops between snapshots |
+| `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+
+## 🎨 Demo App
+
+The demo app showcases the SDK with a production-quality UI:
+
+- **Landing pages** — Hero, Features, Pricing, Live Demo playground
+- **Workspace** — Dashboard with document grid, collaborative editor
+- **Design** — Dark theme, glassmorphism, Inter + JetBrains Mono typography, micro-animations
+- **Editor** — Line numbers, cursor tracking, word count, presence avatars, status bar
+
+## 🏗️ Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| CRDT Engine | [Yjs](https://yjs.dev/) |
+| Transport | [Socket.IO](https://socket.io/) |
+| Server | Node.js + TypeScript |
+| Persistence | PostgreSQL |
+| Pub/Sub | Redis |
+| Auth | JWT (HMAC-SHA256) |
+| SDK | TypeScript |
+| React Hook | React 18+ |
+| Demo App | Vite + React + TypeScript |
+| Rate Limiting | Token bucket |
+
+## 🛣️ Roadmap
+
+- [x] Core SDK with real-time sync
+- [x] Yjs CRDT engine (conflict-free)
+- [x] Live presence & cursor tracking
+- [x] PostgreSQL persistence with snapshots
+- [x] Redis pub/sub for multi-instance
+- [x] JWT authentication with room-scoped permissions
+- [x] Rate limiting
+- [x] React hook
+- [x] Demo app with landing pages + collaborative editor
+- [ ] Rich text editor integration (Tiptap, Slate)
+- [ ] Managed cloud service
+- [ ] Webhook notifications
+- [ ] Document history & time travel
 
 ## 🤝 Contributing
 
-Contributions are welcome! If you have suggestions for improvements, new features, or bug fixes, please feel free to:
+Contributions welcome! 
 
-1. Fork the repository.
-2. Create a new branch (`git checkout -b feature/your-feature-name`).
-3. Make your changes.
-4. Commit your changes (`git commit -m 'Add new feature'`).
-5. Push to the branch (`git push origin feature/your-feature-name`).
-6. Open a Pull Request.
+1. Fork the repository
+2. Create a branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-Please ensure your code adheres to the existing coding style and includes relevant tests if applicable.
+## 📄 License
+
+MIT License — use it however you want.
