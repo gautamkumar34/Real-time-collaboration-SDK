@@ -1,9 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import LandingLayout from './landing/LandingLayout';
-import HeroPage from './landing/HeroPage';
-import FeaturesPage from './landing/FeaturesPage';
-import PricingPage from './landing/PricingPage';
-import DemoPlayground from './landing/DemoPlayground';
+import LandingPage from './landing/LandingPage';
 import AppLayout from './app/AppLayout';
 import Dashboard from './app/Dashboard';
 import DocumentEditor from './app/DocumentEditor';
@@ -12,12 +9,9 @@ import './App.css';
 function App() {
   return (
     <Routes>
-      {/* Public landing pages */}
+      {/* Public landing pages consolidated under / */}
       <Route element={<LandingLayout />}>
-        <Route path="/" element={<HeroPage />} />
-        <Route path="/features" element={<FeaturesPage />} />
-        <Route path="/pricing" element={<PricingPage />} />
-        <Route path="/demo" element={<DemoPlayground />} />
+        <Route path="/" element={<LandingPage />} />
       </Route>
 
       {/* App workspace (demo — no real auth) */}

@@ -152,6 +152,7 @@ export class YjsSocketProvider {
 
     this._onAwarenessUpdate = (roomId: string, data: { clientId: number; state: any }) => {
       if (roomId !== this.roomId) return;
+      console.log('[SDK] _onAwarenessUpdate received:', roomId, data);
       this.awareness.applyUpdate(data);
     };
 
@@ -176,6 +177,7 @@ export class YjsSocketProvider {
 
   /** Broadcast local awareness state */
   broadcastAwareness() {
+    console.log('[SDK] broadcastAwareness:', this.roomId, this.awareness.clientID, this.awareness.getLocalState());
     this.socket.emit('awareness_update', this.roomId, {
       clientId: this.awareness.clientID,
       state: this.awareness.getLocalState(),

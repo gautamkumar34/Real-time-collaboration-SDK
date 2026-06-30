@@ -78,6 +78,12 @@ export class MemoryStore implements DocumentStore {
     return Array.from(docIds);
   }
 
+  async deleteDocument(docId: string): Promise<void> {
+    this.snapshots.delete(docId);
+    this.ops.delete(docId);
+    this.seqCounters.delete(docId);
+  }
+
   async close(): Promise<void> {
     this.snapshots.clear();
     this.ops.clear();

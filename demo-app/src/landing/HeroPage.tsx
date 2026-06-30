@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 
 export default function HeroPage() {
   const codeSnippet = `import { CollabDoc } from 'collab-doc';
@@ -38,13 +37,13 @@ doc.set(['title'], 'Hello World');
           </p>
 
           <div className="hero-actions">
-            <Link to="/demo" className="btn btn-primary btn-lg">
+            <a href="#demo" className="btn btn-primary">
               Try Live Demo
               <span className="btn-arrow">→</span>
-            </Link>
-            <Link to="/features" className="btn btn-secondary btn-lg">
+            </a>
+            <a href="#features" className="btn btn-secondary">
               See Features
-            </Link>
+            </a>
           </div>
 
           <div className="hero-stats stagger">

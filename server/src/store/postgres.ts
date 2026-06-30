@@ -158,8 +158,23 @@ export class PostgresStore implements DocumentStore {
   }
 
   async listDocuments(): Promise<string[]> {
-    const result = await this.pool.query('SELECT doc_id FROM documents ORDER BY updated_at DESC');
-    return result.rows.map(row => row.doc_id);
+    const res = await this.pool.query('SELECT DISTINCT doc_id FROM documents');
+    return res.rows.map(row => row.doc_id);
+  }
+
+  async deleteDocument(docId: string): Promise<void> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM operations WHERE doc_id = $1', [docId]);
+      await client.query('DELETE FROM documents WHERE doc_id = $1', [docId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async close(): Promise<void> {

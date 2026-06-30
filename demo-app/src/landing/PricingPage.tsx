@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 
 export default function PricingPage() {
   const plans = [
@@ -19,7 +18,7 @@ export default function PricingPage() {
         'MIT License',
       ],
       cta: 'Get Started',
-      ctaLink: '/demo',
+      ctaLink: '#demo',
       highlighted: true,
     },
     {
@@ -60,7 +59,7 @@ export default function PricingPage() {
               key={plan.name}
               className={`pricing-card animate-in ${plan.highlighted ? 'highlighted' : ''}`}
             >
-              {plan.highlighted && <span className="pricing-badge">Most Popular</span>}
+
               <h3 className="pricing-name">{plan.name}</h3>
               <div className="pricing-price">
                 <span className="price-amount">{plan.price}</span>
@@ -77,12 +76,12 @@ export default function PricingPage() {
                 ))}
               </ul>
 
-              <Link
-                to={plan.ctaLink}
+              <a
+                href={plan.ctaLink}
                 className={`btn ${plan.highlighted ? 'btn-primary' : 'btn-secondary'} btn-full`}
               >
                 {plan.cta}
-              </Link>
+              </a>
             </div>
           ))}
         </div>

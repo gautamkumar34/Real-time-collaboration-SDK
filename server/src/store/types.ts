@@ -57,6 +57,9 @@ export interface DocumentStore {
   /** List all document IDs that have stored state. */
   listDocuments(): Promise<string[]>;
 
+  /** Delete a document entirely from the store. */
+  deleteDocument(docId: string): Promise<void>;
+
   /** Graceful shutdown — close connections. */
   close(): Promise<void>;
 }

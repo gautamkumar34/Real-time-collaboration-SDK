@@ -34,6 +34,9 @@ let snapshotManager: SnapshotManager;
 /** Track ops-since-snapshot per room for snapshot triggering */
 const roomOpCounts: Map<string, number> = new Map();
 
+/** Map socket.id to Yjs clientID for proper awareness cleanup */
+const socketToClientId: Map<string, number> = new Map();
+
 // ─── HTTP Server ──────────────────────────────────────────────
 const httpServer = http.createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
@@ -84,6 +87,43 @@ const httpServer = http.createServer(async (req, res) => {
                 res.end(JSON.stringify({ error: 'Invalid JSON body' }));
             }
         });
+        return;
+    }
+
+    // ── Delete Document Endpoint ──
+    if (path.startsWith('/api/doc/') && req.method === 'DELETE') {
+        // Set CORS headers for DELETE since this might be a cross-origin preflight/request
+        res.setHeader('Access-Control-Allow-Origin', config.corsOrigin || '*');
+        res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, DELETE');
+        
+        const docId = path.replace('/api/doc/', '');
+        if (!docId) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Document ID required' }));
+            return;
+        }
+
+        try {
+            await store.deleteDocument(docId);
+            docManager.remove(docId);
+            logger.info({ docId }, 'Document deleted');
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+        } catch (error) {
+            logger.error({ docId, error }, 'Failed to delete document');
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Failed to delete document' }));
+        }
+        return;
+    }
+
+    // Handle OPTIONS for CORS preflight
+    if (req.method === 'OPTIONS') {
+        res.setHeader('Access-Control-Allow-Origin', config.corsOrigin || '*');
+        res.setHeader('Access-Control-Allow-Methods', 'OPTIONS, GET, POST, DELETE');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+        res.writeHead(204);
+        res.end();
         return;
     }
 
@@ -189,6 +229,7 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         await ensureDocLoaded(roomId);
         logger.debug({ socketId: socket.id, roomId, userId: user.sub }, 'Joined room');
+        socket.to(roomId).emit('query_awareness', roomId);
     });
 
     // ── Yjs Sync Step 1: Client sends state vector ──
@@ -249,19 +290,31 @@ io.on('connection', (socket) => {
     // ── Awareness Update ──
     socket.on('awareness_update', (roomId: unknown, data: unknown) => {
         if (typeof roomId !== 'string') return;
+        const payload = data as { clientId?: number };
+        if (payload && typeof payload.clientId === 'number') {
+            socketToClientId.set(socket.id, payload.clientId);
+        }
         // Broadcast to everyone else in room
         socket.to(roomId).emit('awareness_update', roomId, data);
     });
 
     // ── Disconnect ──
-    socket.on('disconnect', () => {
-        rateLimiter.remove(socket.id);
+    socket.on('disconnecting', () => {
+        const yjsClientId = socketToClientId.get(socket.id);
+        socketToClientId.delete(socket.id);
+        
         // Broadcast awareness removal to all rooms this socket was in
         for (const room of socket.rooms) {
             if (room !== socket.id) {
-                socket.to(room).emit('awareness_remove', room, socket.id);
+                if (yjsClientId !== undefined) {
+                    socket.to(room).emit('awareness_remove', room, yjsClientId);
+                }
             }
         }
+    });
+
+    socket.on('disconnect', () => {
+        rateLimiter.remove(socket.id);
         logger.info({ socketId: socket.id }, 'Client disconnected');
     });
 

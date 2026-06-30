@@ -121,6 +121,14 @@ export default class CollabDoc extends EventEmitter<CollabDocEvents> {
         this.emit('awareness', this.provider!.awareness.getStates());
       });
 
+      // Listen for awareness queries from newly joined users
+      this.socket.on('query_awareness', (roomId: string) => {
+        console.log('[SDK] query_awareness received:', roomId);
+        if (roomId === this.roomId && this.provider) {
+          this.provider.broadcastAwareness();
+        }
+      });
+
       // Join room, then request sync
       this.socket.emit('join_room', this.roomId);
       this.provider.requestSync();
@@ -133,6 +141,7 @@ export default class CollabDoc extends EventEmitter<CollabDocEvents> {
     this.socket.on('disconnect', (reason: string) => {
       this.connected = false;
       this.synced = false;
+      this.socket.off('query_awareness');
       if (this.provider) {
         this.provider.destroy();
         this.provider = null;

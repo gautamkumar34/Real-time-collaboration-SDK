@@ -1,74 +1,190 @@
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import * as Y from 'yjs';
+import { useCollabDoc } from '../../../sdk/src/react/useCollabDoc';
+import { getSavedDocuments, saveDocuments } from './AppLayout';
+
+const BackIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="19" y1="12" x2="5" y2="12" />
+    <polyline points="12 19 5 12 12 5" />
+  </svg>
+);
+
+const ShareIcon = () => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px', color: 'var(--green)' }}>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
+);
 
 /**
- * DocumentEditor — Collaborative text editor using a local Y.Doc.
- * 
- * This demo works standalone (no server required).
- * When server is running, replace with the real CollabDoc SDK.
+ * DocumentEditor — Collaborative text editor using the real CollabDoc SDK.
  */
 export default function DocumentEditor() {
   const { id } = useParams<{ id: string }>();
-  const [doc] = useState(() => new Y.Doc());
-  const yText = useRef(doc.getText('content'));
-  const yMeta = useRef(doc.getMap('meta'));
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [wordCount, setWordCount] = useState(0);
+  const [toastMessage, setToastMessage] = useState('');
 
-  // Simulated presence
-  const [users] = useState([
-    { name: 'You', color: '#60a5fa', active: true },
-    { name: 'Alice', color: '#7c5cfc', active: true },
-    { name: 'Bob', color: '#34d399', active: false },
-  ]);
-
-  // Initialize document
-  useEffect(() => {
-    const docTitle = id?.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) ?? 'Untitled';
+  // 1. Generate/load local user details
+  const [currentUser] = useState(() => {
+    const stored = localStorage.getItem('collab-doc-user');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {}
+    }
+    const adjectives = ['Creative', 'Swift', 'Bright', 'Clever', 'Smart', 'Logical', 'Active', 'Dynamic'];
+    const nouns = ['Coder', 'Writer', 'Hacker', 'Designer', 'Builder', 'Architect', 'Dev', 'Maker'];
+    const colors = ['#0070f3', '#34d399', '#f472b6', '#7928ca', '#f5a623', '#22d3ee', '#ec4899'];
     
-    if (yText.current.length === 0) {
-      yText.current.insert(0, `# ${docTitle}\n\nStart writing your document here.\n\nThis editor uses Yjs CRDTs for conflict-free real-time collaboration.\nOpen this page in multiple tabs to see it in action!\n`);
+    const name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
+    const color = colors[Math.floor(Math.random() * colors.length)];
+    const user = { name, color };
+    localStorage.setItem('collab-doc-user', JSON.stringify(user));
+    return user;
+  });
+
+  // 2. Connect to the real server using the SDK hook
+  const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
+  const { doc: collabDoc, isConnected, isSynced, presence } = useCollabDoc({
+    roomId: id || 'default-room',
+    serverUrl,
+    user: currentUser,
+  });
+
+  // Ensure this document is saved in the local list (e.g. if joined via share link)
+  useEffect(() => {
+    if (!id) return;
+    const docs = getSavedDocuments();
+    if (!docs.some(d => d.id === id)) {
+      const docTitle = id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const newDoc = {
+        id,
+        title: docTitle,
+        type: 'doc',
+        updated: 'Just now',
+        collaborators: 1,
+      };
+      saveDocuments([newDoc, ...docs]);
     }
-    if (!yMeta.current.get('title')) {
-      yMeta.current.set('title', docTitle);
+  }, [id]);
+
+  // Sync document title to the localStorage list when it changes
+  useEffect(() => {
+    if (!id || !title) return;
+    const docs = getSavedDocuments();
+    const updatedDocs = docs.map(d => {
+      if (d.id === id && d.title !== title) {
+        return { ...d, title, updated: 'Just now' };
+      }
+      return d;
+    });
+    const changed = JSON.stringify(docs) !== JSON.stringify(updatedDocs);
+    if (changed) {
+      saveDocuments(updatedDocs);
+    }
+  }, [id, title]);
+
+  // 3. Initialize and sync document content
+  useEffect(() => {
+    if (!collabDoc || !id) return;
+
+    const ydoc = collabDoc.getYDoc();
+    const yText = collabDoc.getText('content');
+    const yMeta = ydoc.getMap('meta');
+
+    // Default title: fetch from local storage if created with a custom title, otherwise fallback
+    const savedDocs = getSavedDocuments();
+    const existingDoc = savedDocs.find(d => d.id === id);
+    const docTitle = existingDoc?.title || id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+
+    // Only initialize with default template content once the server sync has completed and the document is empty!
+    if (isSynced && yText.length === 0) {
+      collabDoc.getYDoc().transact(() => {
+        yText.insert(0, `# ${docTitle}\n\nStart writing your document here.\n\nThis editor uses Yjs CRDTs for conflict-free real-time collaboration.\n`);
+        yMeta.set('title', docTitle);
+      });
     }
 
-    setText(yText.current.toString());
-    setTitle(yMeta.current.get('title') as string || docTitle);
+    setText(yText.toString());
+    setTitle(yMeta.get('title') as string || docTitle);
+    setWordCount(yText.toString().trim() ? yText.toString().trim().split(/\s+/).length : 0);
 
     const textObs = () => {
-      const t = yText.current.toString();
+      const t = yText.toString();
       setText(t);
       setWordCount(t.trim() ? t.trim().split(/\s+/).length : 0);
     };
-    const metaObs = () => setTitle(yMeta.current.get('title') as string || '');
 
-    yText.current.observe(textObs);
-    yMeta.current.observe(metaObs);
-    textObs(); // initial count
+    const metaObs = () => {
+      setTitle(yMeta.get('title') as string || docTitle);
+    };
+
+    yText.observe(textObs);
+    yMeta.observe(metaObs);
 
     return () => {
-      yText.current.unobserve(textObs);
-      yMeta.current.unobserve(metaObs);
-      doc.destroy();
+      yText.unobserve(textObs);
+      yMeta.unobserve(metaObs);
     };
-  }, [id, doc]);
+  }, [collabDoc, id, isSynced]);
 
+  // 4. Handle text edits with prefix-suffix incremental diffing
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (!collabDoc) return;
+    const yText = collabDoc.getText('content');
     const newValue = e.target.value;
-    doc.transact(() => {
-      yText.current.delete(0, yText.current.length);
-      yText.current.insert(0, newValue);
-    });
-  }, [doc]);
+    const oldValue = yText.toString();
 
+    // Find common prefix
+    let commonPrefixLen = 0;
+    while (
+      commonPrefixLen < oldValue.length &&
+      commonPrefixLen < newValue.length &&
+      oldValue[commonPrefixLen] === newValue[commonPrefixLen]
+    ) {
+      commonPrefixLen++;
+    }
+
+    // Find common suffix
+    let commonSuffixLen = 0;
+    while (
+      commonSuffixLen < oldValue.length - commonPrefixLen &&
+      commonSuffixLen < newValue.length - commonPrefixLen &&
+      oldValue[oldValue.length - 1 - commonSuffixLen] === newValue[newValue.length - 1 - commonSuffixLen]
+    ) {
+      commonSuffixLen++;
+    }
+
+    const deleteCount = oldValue.length - commonPrefixLen - commonSuffixLen;
+    const insertText = newValue.substring(commonPrefixLen, newValue.length - commonSuffixLen);
+
+    collabDoc.getYDoc().transact(() => {
+      if (deleteCount > 0) {
+        yText.delete(commonPrefixLen, deleteCount);
+      }
+      if (insertText.length > 0) {
+        yText.insert(commonPrefixLen, insertText);
+      }
+    });
+  }, [collabDoc]);
+
+  // 5. Handle title edits
   const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    yMeta.current.set('title', e.target.value);
-  }, []);
+    if (!collabDoc) return;
+    const yMeta = collabDoc.getYDoc().getMap('meta');
+    yMeta.set('title', e.target.value);
+  }, [collabDoc]);
 
   const handleCursorMove = useCallback(() => {
     const ta = textareaRef.current;
@@ -78,11 +194,30 @@ export default function DocumentEditor() {
     setCursorPos({ line: lines.length, col: lines[lines.length - 1].length + 1 });
   }, []);
 
+  // 6. Handle copying share links
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    setToastMessage('Link copied to clipboard!');
+    setTimeout(() => setToastMessage(''), 3000);
+  };
+
+  // Get active online users from presence
+  const activeUsers = Array.from(presence.entries())
+    .map(([clientId, state]) => ({
+      id: clientId,
+      name: state.user?.name || `User ${clientId}`,
+      color: state.user?.color || '#888888',
+      isSelf: clientId === collabDoc?.getAwareness()?.clientID,
+    }));
+
   return (
     <div className="editor-page">
       {/* Top bar */}
       <header className="editor-topbar">
         <div className="editor-title-area">
+          <Link to="/app" className="editor-back-btn" title="Back to Dashboard">
+            <BackIcon />
+          </Link>
           <input
             type="text"
             className="editor-title-input"
@@ -91,31 +226,41 @@ export default function DocumentEditor() {
             placeholder="Untitled Document"
           />
           <span className="editor-save-status">
-            <span className="save-dot" /> Auto-saved
+            <span className={`status-pulse-dot ${isConnected ? 'green' : 'red'}`} />
+            {isConnected ? 'Sync Active' : 'Connecting...'}
           </span>
         </div>
 
         <div className="editor-presence">
-          {users.filter(u => u.active).map(u => (
-            <div
-              key={u.name}
-              className="editor-user-avatar"
-              style={{ background: u.color }}
-              title={u.name}
-            >
-              {u.name[0]}
-            </div>
-          ))}
+          <div className="presence-avatars-list">
+            {activeUsers.map(u => (
+              <div
+                key={u.id}
+                className="editor-user-avatar"
+                style={{ 
+                  background: u.color,
+                  border: u.isSelf ? '2px solid var(--text-primary)' : 'none'
+                }}
+                title={`${u.name} ${u.isSelf ? '(You)' : ''}`}
+              >
+                {u.name[0].toUpperCase()}
+              </div>
+            ))}
+          </div>
           <span className="editor-user-count">
-            {users.filter(u => u.active).length} online
+            {activeUsers.length} online
           </span>
+          <button className="btn btn-primary btn-sm share-btn" onClick={handleShare}>
+            <ShareIcon />
+            Share Link
+          </button>
         </div>
       </header>
 
       {/* Editor body */}
       <div className="editor-body">
         <div className="editor-gutter">
-          {text.split('\n').map((_, i) => (
+          {(text || '').split('\n').map((_, i) => (
             <span
               key={i}
               className={`line-num ${cursorPos.line === i + 1 ? 'active' : ''}`}
@@ -130,7 +275,7 @@ export default function DocumentEditor() {
           value={text}
           onChange={handleTextChange}
           onKeyUp={handleCursorMove}
-          onClick={handleCursorMove}
+          onMousedown={handleCursorMove}
           spellCheck={false}
           autoFocus
         />
@@ -139,13 +284,23 @@ export default function DocumentEditor() {
       {/* Status bar */}
       <footer className="editor-statusbar">
         <span className="status-item">
-          <span className="status-dot green" /> Connected
+          <span className={`status-dot ${isConnected ? 'green' : 'red'}`} />
+          {isConnected ? 'Connected' : 'Offline'}
         </span>
+        <span className="status-item">Server: {serverUrl}</span>
         <span className="status-item">CRDT: Yjs</span>
         <span className="status-item">Ln {cursorPos.line}, Col {cursorPos.col}</span>
         <span className="status-item">{wordCount} words</span>
-        <span className="status-item">{text.length} chars</span>
+        <span className="status-item">{(text || '').length} chars</span>
       </footer>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="toast-notification animate-in glass">
+          <CheckIcon />
+          {toastMessage}
+        </div>
+      )}
     </div>
   );
 }
