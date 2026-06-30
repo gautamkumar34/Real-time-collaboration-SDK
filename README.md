@@ -1,8 +1,15 @@
-# ⚡ CollabDoc — Real-time Collaboration SDK
+# ⚡ CollabDoc — Real-time Collaboration SDK (v2.1.0)
 
 **Open-source, self-hostable SDK for adding multiplayer editing to any app.**
 
 Built on **Yjs CRDTs** + **Socket.IO** — no conflicts, no vendor lock-in.
+
+## 🆕 What's New in v2.1.0
+- **Live Cursor Tracking**: Real-time remote cursor rendering with names and dynamic colors.
+- **Document Management**: Added capability to delete documents directly from the glassmorphism Dashboard.
+- **Router Stability**: Seamless SPA navigation with optimized React Router configuration.
+- **UI Consistency**: Enhanced Dashboard and Editor styling for a cohesive, premium look.
+
 
 ## 🌐 Live Demo
 
@@ -317,7 +324,8 @@ The demo app showcases the SDK with a production-quality UI:
 
 - [x] Core SDK with real-time sync
 - [x] Yjs CRDT engine (conflict-free)
-- [x] Live presence & cursor tracking
+- [x] Live presence & cursor tracking (Added in v2.1.0)
+- [x] Document Management & Deletion (Added in v2.1.0)
 - [x] PostgreSQL persistence with snapshots
 - [x] Redis pub/sub for multi-instance
 - [x] JWT authentication with room-scoped permissions
