@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCollabDoc } from '../../../sdk/src/react/useCollabDoc';
 import { getSavedDocuments, saveDocuments } from './AppLayout';
+import { getCaretCoordinates } from '../utils/getCaretCoordinates';
 
 const BackIcon = () => (
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -192,7 +193,10 @@ export default function DocumentEditor() {
     const pos = ta.selectionStart;
     const lines = ta.value.substring(0, pos).split('\n');
     setCursorPos({ line: lines.length, col: lines[lines.length - 1].length + 1 });
-  }, []);
+    if (collabDoc) {
+      collabDoc.setCursor({ path: 'content', offset: pos });
+    }
+  }, [collabDoc]);
 
   // 6. Handle copying share links
   const handleShare = () => {
@@ -208,7 +212,35 @@ export default function DocumentEditor() {
       name: state.user?.name || `User ${clientId}`,
       color: state.user?.color || '#888888',
       isSelf: clientId === collabDoc?.getAwareness()?.clientID,
+      cursorOffset: state.cursor?.offset,
     }));
+
+  const [remoteCursors, setRemoteCursors] = useState<any[]>([]);
+
+  // Calculate remote cursor positions
+  const updateRemoteCursors = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    
+    const cursors = activeUsers
+      .filter(u => !u.isSelf && typeof u.cursorOffset === 'number')
+      .map(u => {
+        const coords = getCaretCoordinates(ta, u.cursorOffset!);
+        return {
+          ...u,
+          top: coords.top - ta.scrollTop,
+          left: coords.left - ta.scrollLeft,
+          height: coords.height
+        };
+      });
+      
+    setRemoteCursors(cursors);
+  }, [activeUsers]);
+
+  // Update cursors when presence changes or textarea scrolls
+  useEffect(() => {
+    updateRemoteCursors();
+  }, [updateRemoteCursors]);
 
   return (
     <div className="editor-page">
@@ -269,16 +301,35 @@ export default function DocumentEditor() {
             </span>
           ))}
         </div>
-        <textarea
-          ref={textareaRef}
-          className="editor-textarea"
-          value={text}
-          onChange={handleTextChange}
-          onKeyUp={handleCursorMove}
-          onMousedown={handleCursorMove}
-          spellCheck={false}
-          autoFocus
-        />
+        <div style={{ position: 'relative', flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <textarea
+            ref={textareaRef}
+            className="editor-textarea"
+            value={text}
+            onChange={handleTextChange}
+            onKeyUp={handleCursorMove}
+            onMouseDown={handleCursorMove}
+            onClick={handleCursorMove}
+            onSelect={handleCursorMove}
+            onScroll={updateRemoteCursors}
+            spellCheck={false}
+            autoFocus
+          />
+          {remoteCursors.map(cursor => (
+            <div
+              key={cursor.id}
+              className="remote-cursor"
+              style={{
+                top: `${cursor.top}px`,
+                left: `${cursor.left}px`,
+                height: `${cursor.height || 20}px`,
+                '--cursor-color': cursor.color,
+              } as React.CSSProperties}
+            >
+              <div className="remote-cursor-name">{cursor.name}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Status bar */}
