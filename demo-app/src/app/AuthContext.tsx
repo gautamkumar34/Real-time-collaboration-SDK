@@ -29,11 +29,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      })
+      .catch(() => setIsLoading(false));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
@@ -41,9 +43,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
 
       if (event === 'SIGNED_IN') {
-        const stored = localStorage.getItem(POST_AUTH_REDIRECT_KEY);
-        if (stored && stored.startsWith('/')) {
-          localStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+        const stored = sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
+        if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+          sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
           setPendingRedirect(stored);
         }
       }
