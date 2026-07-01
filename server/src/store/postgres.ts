@@ -133,7 +133,7 @@ export class PostgresStore implements DocumentStore {
       [docId, afterSeq]
     );
 
-    return result.rows.map(row => ({
+    return result.rows.map((row: any) => ({
       docId: row.doc_id,
       seq: row.seq,
       opData: row.op_data,
@@ -159,7 +159,7 @@ export class PostgresStore implements DocumentStore {
 
   async listDocuments(): Promise<string[]> {
     const res = await this.pool.query('SELECT DISTINCT doc_id FROM documents');
-    return res.rows.map(row => row.doc_id);
+    return res.rows.map((row: any) => row.doc_id);
   }
 
   async deleteDocument(docId: string): Promise<void> {
