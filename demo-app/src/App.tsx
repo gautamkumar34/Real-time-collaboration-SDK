@@ -1,4 +1,5 @@
-import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useEffect } from 'react';
 import LandingLayout from './landing/LandingLayout';
 import LandingPage from './landing/LandingPage';
 import AppLayout from './app/AppLayout';
@@ -7,6 +8,32 @@ import DocumentEditor from './app/DocumentEditor';
 import Login from './app/Login';
 import { AuthProvider, useAuth } from './app/AuthContext';
 import './App.css';
+
+function AuthOrchestrator() {
+  const { user, pendingRedirect, clearPendingRedirect } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  // Forward Supabase OAuth errors from root URL to the login page
+  useEffect(() => {
+    if (location.pathname === '/' && searchParams.get('error')) {
+      const error = encodeURIComponent(searchParams.get('error') || '');
+      const desc = encodeURIComponent(searchParams.get('error_description') || '');
+      navigate(`/login?error=${error}&error_description=${desc}`, { replace: true });
+    }
+  }, [location.pathname, searchParams]);
+
+  // Navigate to intended destination after Google OAuth
+  useEffect(() => {
+    if (user && pendingRedirect) {
+      clearPendingRedirect();
+      navigate(pendingRedirect, { replace: true });
+    }
+  }, [user, pendingRedirect]);
+
+  return null;
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -26,15 +53,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
+      <AuthOrchestrator />
       <Routes>
-        {/* Public landing pages consolidated under / */}
         <Route element={<LandingLayout />}>
           <Route path="/" element={<LandingPage />} />
         </Route>
-        
+
         <Route path="/login" element={<Login />} />
 
-        {/* App workspace (Protected) */}
         <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
           <Route path="doc/:id" element={<DocumentEditorWrapper />} />
