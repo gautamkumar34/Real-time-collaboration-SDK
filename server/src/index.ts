@@ -117,6 +117,20 @@ const httpServer = http.createServer(async (req, res) => {
         return;
     }
 
+    // ── Get Active Rooms Endpoint ──
+    if (path === '/api/rooms' && req.method === 'GET') {
+        res.setHeader('Access-Control-Allow-Origin', config.corsOrigin || '*');
+        const roomCounts: Record<string, number> = {};
+        for (const [roomId, sockets] of io.sockets.adapter.rooms.entries()) {
+            if (roomId.startsWith('doc-')) {
+                roomCounts[roomId] = sockets.size;
+            }
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(roomCounts));
+        return;
+    }
+
     // Handle OPTIONS for CORS preflight
     if (req.method === 'OPTIONS') {
         res.setHeader('Access-Control-Allow-Origin', config.corsOrigin || '*');
@@ -141,8 +155,8 @@ const io = new Server(httpServer, {
 });
 
 // ─── Auth Middleware ──────────────────────────────────────────
-// If JWT_SECRET is set, require valid token. Otherwise, allow all (dev mode).
-const authEnabled = !!process.env.JWT_SECRET;
+// If JWT_SECRET or SUPABASE_SECRET_KEY is set, require valid token. Otherwise, allow all (dev mode).
+const authEnabled = !!(process.env.JWT_SECRET || process.env.SUPABASE_SECRET_KEY);
 
 io.use((socket, next) => {
     if (!authEnabled) {

@@ -1,8 +1,9 @@
 import { useParams, Link } from 'react-router-dom';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useCollabDoc } from '../../../sdk/src/react/useCollabDoc';
 import { getSavedDocuments, saveDocuments } from './AppLayout';
 import { getCaretCoordinates } from '../utils/getCaretCoordinates';
+import { useAuth } from './AuthContext';
 
 const BackIcon = () => (
   <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -37,23 +38,19 @@ export default function DocumentEditor() {
   const [toastMessage, setToastMessage] = useState('');
 
   // 1. Generate/load local user details
-  const [currentUser] = useState(() => {
-    const stored = localStorage.getItem('collab-doc-user');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {}
+  const { user } = useAuth();
+  
+  const currentUser = useMemo(() => {
+    if (user) {
+      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+      const colors = ['#0070f3', '#34d399', '#f472b6', '#7928ca', '#f5a623', '#22d3ee', '#ec4899'];
+      // Deterministic color based on name string
+      const colorIndex = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length;
+      const color = colors[colorIndex];
+      return { name, color };
     }
-    const adjectives = ['Creative', 'Swift', 'Bright', 'Clever', 'Smart', 'Logical', 'Active', 'Dynamic'];
-    const nouns = ['Coder', 'Writer', 'Hacker', 'Designer', 'Builder', 'Architect', 'Dev', 'Maker'];
-    const colors = ['#0070f3', '#34d399', '#f472b6', '#7928ca', '#f5a623', '#22d3ee', '#ec4899'];
-    
-    const name = `${adjectives[Math.floor(Math.random() * adjectives.length)]} ${nouns[Math.floor(Math.random() * nouns.length)]}`;
-    const color = colors[Math.floor(Math.random() * colors.length)];
-    const user = { name, color };
-    localStorage.setItem('collab-doc-user', JSON.stringify(user));
-    return user;
-  });
+    return { name: 'Guest', color: '#888888' };
+  }, [user]);
 
   // 2. Connect to the real server using the SDK hook
   const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
@@ -271,7 +268,12 @@ export default function DocumentEditor() {
                 className="editor-user-avatar"
                 style={{ 
                   background: u.color,
-                  border: u.isSelf ? '2px solid var(--text-primary)' : 'none'
+                  border: u.isSelf ? '2px solid var(--text-primary)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 'bold'
                 }}
                 title={`${u.name} ${u.isSelf ? '(You)' : ''}`}
               >

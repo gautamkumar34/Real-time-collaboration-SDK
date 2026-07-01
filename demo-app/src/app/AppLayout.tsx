@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { DocIcon } from '../components/DocIcon';
+import { useAuth } from './AuthContext';
 
 export interface DocumentItem {
   id: string;
@@ -75,17 +76,12 @@ export default function AppLayout() {
   const [modalOpen, setModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState('doc');
+  
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   // Load current user
-  const [currentUser] = useState(() => {
-    const stored = localStorage.getItem('collab-doc-user');
-    if (stored) {
-      try {
-        return JSON.parse(stored);
-      } catch (e) {}
-    }
-    return { name: 'Demo User', color: '#0070f3' };
-  });
+  const { user, signOut } = useAuth();
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
 
   // Listen to changes in documents list
   useEffect(() => {
@@ -185,15 +181,25 @@ export default function AppLayout() {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <div className="user-avatar" style={{ background: currentUser.color || 'var(--accent)' }}>
-              {currentUser.name ? currentUser.name[0].toUpperCase() : 'U'}
+          <div className="sidebar-user" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
+              <div className="user-avatar" style={{ background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--bg-primary)', fontWeight: 'bold' }}>
+                {userName && userName.length > 0 ? userName[0].toUpperCase() : 'U'}
+              </div>
+              {sidebarOpen && (
+                <div className="user-info">
+                  <span className="user-name">{userName}</span>
+                  <span className="user-status">Online</span>
+                </div>
+              )}
             </div>
             {sidebarOpen && (
-              <div className="user-info">
-                <span className="user-name">{currentUser.name}</span>
-                <span className="user-status">Online</span>
-              </div>
+              <button 
+                onClick={() => setConfirmSignOut(true)}
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', padding: '0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem', width: '100%', marginTop: '0.5rem' }}
+              >
+                Sign Out
+              </button>
             )}
           </div>
         </div>
@@ -243,6 +249,26 @@ export default function AppLayout() {
               </button>
               <button className="btn btn-primary btn-sm" onClick={handleCreate}>
                 Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sign Out Confirmation Modal */}
+      {confirmSignOut && (
+        <div className="modal-overlay" onClick={() => setConfirmSignOut(false)}>
+          <div className="modal-content glass" onClick={e => e.stopPropagation()}>
+            <h3>Sign Out</h3>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--text-secondary)' }}>
+              Are you sure you want to sign out of CollabDoc?
+            </p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary btn-sm" onClick={() => setConfirmSignOut(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={signOut} style={{ background: 'var(--red)' }}>
+                Sign Out
               </button>
             </div>
           </div>

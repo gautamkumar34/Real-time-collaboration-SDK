@@ -25,6 +25,7 @@ npm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+.agents/
 
 # Docker volumes (if mounted locally)
 postgres_data/

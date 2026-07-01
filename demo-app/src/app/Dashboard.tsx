@@ -45,6 +45,7 @@ const TrashIcon = () => (
 export default function Dashboard() {
   const navigate = useNavigate();
   const [docs, setDocs] = useState<DocumentItem[]>(() => getSavedDocuments());
+  const [roomCounts, setRoomCounts] = useState<Record<string, number>>({});
   const [modalOpen, setModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newType, setNewType] = useState('doc');
@@ -80,6 +81,25 @@ export default function Dashboard() {
     };
     window.addEventListener('collab-docs-changed', handleUpdate);
     return () => window.removeEventListener('collab-docs-changed', handleUpdate);
+  }, []);
+
+  useEffect(() => {
+    // Fetch live user counts per document room from the backend
+    const fetchRoomCounts = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/rooms');
+        if (res.ok) {
+          const counts = await res.json();
+          setRoomCounts(counts);
+        }
+      } catch (err) {
+        console.error('Failed to fetch room counts', err);
+      }
+    };
+
+    fetchRoomCounts();
+    const interval = setInterval(fetchRoomCounts, 5000); // refresh every 5s
+    return () => clearInterval(interval);
   }, []);
 
   const handleCreate = () => {
@@ -167,7 +187,7 @@ export default function Dashboard() {
               <h3 className="doc-title">{doc.title}</h3>
               <div className="doc-card-footer">
                 <div className="doc-avatars">
-                  {Array.from({ length: Math.min(doc.collaborators || 1, 3) }, (_, i) => (
+                  {Array.from({ length: Math.min(roomCounts[doc.id] || 0, 3) }, (_, i) => (
                     <div
                       key={i}
                       className="doc-avatar"
@@ -177,11 +197,11 @@ export default function Dashboard() {
                       }}
                     />
                   ))}
-                  {(doc.collaborators || 1) > 3 && (
-                    <span className="doc-avatar-more">+{(doc.collaborators || 1) - 3}</span>
+                  {(roomCounts[doc.id] || 0) > 3 && (
+                    <span className="doc-avatar-more">+{(roomCounts[doc.id] || 0) - 3}</span>
                   )}
                 </div>
-                <span className="doc-collab-count">{doc.collaborators || 1} online</span>
+                <span className="doc-collab-count">{roomCounts[doc.id] || 0} online</span>
               </div>
             </div>
           ))}

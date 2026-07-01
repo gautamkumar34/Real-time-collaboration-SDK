@@ -29,7 +29,7 @@ export interface TokenPayload {
 
 // ─── Config ───────────────────────────────────────────────────
 
-const JWT_SECRET: jwt.Secret = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_SECRET: jwt.Secret = process.env.SUPABASE_SECRET_KEY || process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const TOKEN_EXPIRY_SECONDS = parseInt(process.env.JWT_EXPIRY_SECONDS || '86400', 10); // 24h
 
 // ─── Sign ─────────────────────────────────────────────────────
@@ -49,6 +49,16 @@ export function signToken(payload: TokenPayload): string {
 export function verifyToken(token: string): TokenPayload | null {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+    
+    // Check if it's a Supabase token
+    if (decoded.aud === 'authenticated' && decoded.role === 'authenticated') {
+      return {
+        sub: decoded.sub as string,
+        room: '*', // Authenticated users can access any room in this simple demo
+        perm: 'write',
+      };
+    }
+
     if (!decoded.sub || !decoded.room || !decoded.perm) return null;
     return {
       sub: decoded.sub as string,
