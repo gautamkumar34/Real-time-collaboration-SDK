@@ -67,7 +67,8 @@ export default function Dashboard() {
     setDocs(updatedDocs);
 
     try {
-      await fetch(`http://localhost:8080/api/doc/${id}`, {
+      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
+      await fetch(`${serverUrl}/api/doc/${id}`, {
         method: 'DELETE',
       });
     } catch (err) {
@@ -87,7 +88,8 @@ export default function Dashboard() {
     // Fetch live user counts per document room from the backend
     const fetchRoomCounts = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/rooms');
+        const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
+        const res = await fetch(`${serverUrl}/api/rooms`);
         if (res.ok) {
           const counts = await res.json();
           setRoomCounts(counts);
