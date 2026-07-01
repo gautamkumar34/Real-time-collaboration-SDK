@@ -170,13 +170,13 @@ io.use((socket, next) => {
         return next(new Error('AUTH_REQUIRED: No token provided'));
     }
 
-    const payload = verifyToken(token);
-    if (!payload) {
-        return next(new Error('AUTH_INVALID: Token verification failed'));
+    try {
+        const payload = verifyToken(token);
+        (socket.data as any).user = payload;
+        next();
+    } catch (err) {
+        return next(new Error(`AUTH_INVALID: ${(err as Error).message}`));
     }
-
-    (socket.data as any).user = payload;
-    next();
 });
 
 // ─── Room Loading ─────────────────────────────────────────────

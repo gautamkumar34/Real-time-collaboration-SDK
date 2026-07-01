@@ -46,28 +46,29 @@ export function signToken(payload: TokenPayload): string {
 // ─── Verify ───────────────────────────────────────────────────
 
 /** Verify a JWT token and return the payload, or null if invalid */
-export function verifyToken(token: string): TokenPayload | null {
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-    
-    // Check if it's a Supabase token
-    if (decoded.aud === 'authenticated' && decoded.role === 'authenticated') {
-      return {
-        sub: decoded.sub as string,
-        room: '*', // Authenticated users can access any room in this simple demo
-        perm: 'write',
-      };
-    }
+import * as fs from 'fs';
 
-    if (!decoded.sub || !decoded.room || !decoded.perm) return null;
+export function verifyToken(token: string): TokenPayload {
+  const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
+  
+  // Check if it's a Supabase token
+  if (decoded.aud === 'authenticated' && decoded.role === 'authenticated') {
     return {
       sub: decoded.sub as string,
-      room: decoded.room as string,
-      perm: decoded.perm as Permission,
+      room: '*', // Authenticated users can access any room in this simple demo
+      perm: 'write',
     };
-  } catch {
-    return null;
   }
+
+  if (!decoded.sub || !decoded.room || !decoded.perm) {
+    throw new Error('Invalid payload structure: missing sub, room, or perm');
+  }
+  
+  return {
+    sub: decoded.sub as string,
+    room: decoded.room as string,
+    perm: decoded.perm as Permission,
+  };
 }
 
 // ─── Permission Check ─────────────────────────────────────────
