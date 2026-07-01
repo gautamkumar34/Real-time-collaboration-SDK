@@ -15,6 +15,7 @@
  */
 
 import jwt from 'jsonwebtoken';
+import { createRemoteJWKSet, jwtVerify, type JWTPayload, type GetKeyFunction, type JWSHeaderParameters, type FlattenedJWSInput } from 'jose';
 
 export type Permission = 'read' | 'write';
 
@@ -32,9 +33,26 @@ export interface TokenPayload {
 const JWT_SECRET: jwt.Secret = process.env.SUPABASE_SECRET_KEY || process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const TOKEN_EXPIRY_SECONDS = parseInt(process.env.JWT_EXPIRY_SECONDS || '86400', 10); // 24h
 
+// ─── JWKS (for ES256 Supabase tokens) ─────────────────────────
+
+type JWKSVerifier = GetKeyFunction<JWSHeaderParameters, FlattenedJWSInput>;
+
+// Module-level JWKS verifier — initialized from SUPABASE_URL, replaceable in tests via setJWKS()
+let _jwks: JWKSVerifier | null = null;
+
+const SUPABASE_URL = process.env.SUPABASE_URL;
+if (SUPABASE_URL) {
+  _jwks = createRemoteJWKSet(new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`));
+}
+
+/** Override the JWKS verifier — for testing with a local key set. */
+export function setJWKS(jwks: JWKSVerifier): void {
+  _jwks = jwks;
+}
+
 // ─── Sign ─────────────────────────────────────────────────────
 
-/** Issue a signed JWT token for a user + room + permission */
+/** Issue a signed HS256 JWT token for a user + room + permission */
 export function signToken(payload: TokenPayload): string {
   return jwt.sign(
     { sub: payload.sub, room: payload.room, perm: payload.perm },
@@ -45,41 +63,62 @@ export function signToken(payload: TokenPayload): string {
 
 // ─── Verify ───────────────────────────────────────────────────
 
-/** Verify a JWT token and return the payload, or null if invalid */
-import * as fs from 'fs';
+/**
+ * Verify a JWT token and return the payload.
+ *
+ * Handles two token types:
+ *  - ES256 (Supabase user session tokens) — verified via JWKS
+ *  - HS256 (custom app-issued tokens)    — verified via JWT_SECRET
+ */
+export async function verifyToken(token: string): Promise<TokenPayload> {
+  const header = jwt.decode(token, { complete: true })?.header;
 
-export function verifyToken(token: string): TokenPayload {
+  if (header?.alg === 'ES256') {
+    return verifyES256Token(token);
+  }
+
+  return verifyHS256Token(token);
+}
+
+async function verifyES256Token(token: string): Promise<TokenPayload> {
+  if (!_jwks) {
+    throw new Error('ES256 token received but SUPABASE_URL is not configured');
+  }
+
+  let payload: JWTPayload & { role?: string };
+  try {
+    const result = await jwtVerify(token, _jwks);
+    payload = result.payload as JWTPayload & { role?: string };
+  } catch (err) {
+    throw new Error(`[ES256] ${(err as Error).message}`);
+  }
+
+  if (payload.aud === 'authenticated' && payload.role === 'authenticated') {
+    return {
+      sub: payload.sub as string,
+      room: '*',
+      perm: 'write',
+    };
+  }
+
+  throw new Error('[ES256] Unrecognized token audience');
+}
+
+function verifyHS256Token(token: string): TokenPayload {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as jwt.JwtPayload;
-    
-    // Check if it's a Supabase token
-    if (decoded.aud === 'authenticated' && decoded.role === 'authenticated') {
-      return {
-        sub: decoded.sub as string,
-        room: '*', // Authenticated users can access any room in this simple demo
-        perm: 'write',
-      };
-    }
 
     if (!decoded.sub || !decoded.room || !decoded.perm) {
       throw new Error('Invalid payload structure: missing sub, room, or perm');
     }
-    
+
     return {
       sub: decoded.sub as string,
       room: decoded.room as string,
       perm: decoded.perm as Permission,
     };
   } catch (err) {
-    let alg = 'unknown';
-    try {
-      const unverified = jwt.decode(token, { complete: true });
-      if (unverified && typeof unverified !== 'string' && unverified.header) {
-        alg = unverified.header.alg;
-      }
-    } catch (e) {}
-    
-    throw new Error(`[${alg}] ${(err as Error).message}`);
+    throw new Error(`[HS256] ${(err as Error).message}`);
   }
 }
 

@@ -158,7 +158,7 @@ const io = new Server(httpServer, {
 // If JWT_SECRET or SUPABASE_SECRET_KEY is set, require valid token. Otherwise, allow all (dev mode).
 const authEnabled = !!(process.env.JWT_SECRET || process.env.SUPABASE_SECRET_KEY);
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
     if (!authEnabled) {
         // Dev mode — no auth required
         (socket.data as any).user = { sub: `anon-${socket.id}`, room: '*', perm: 'write' as const };
@@ -171,7 +171,7 @@ io.use((socket, next) => {
     }
 
     try {
-        const payload = verifyToken(token);
+        const payload = await verifyToken(token);
         (socket.data as any).user = payload;
         next();
     } catch (err) {
