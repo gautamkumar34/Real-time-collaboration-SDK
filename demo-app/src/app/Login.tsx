@@ -1,21 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useAuth } from './AuthContext';
+
+const POST_AUTH_REDIRECT_KEY = 'post_auth_redirect';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+
+  // Where to go after login — set by ProtectedRoute when redirecting here
+  const from: string = (location.state as any)?.from?.pathname || '/app';
+
+  // If already logged in, redirect immediately
+  useEffect(() => {
+    if (user) {
+      navigate(from, { replace: true });
+    }
+  }, [user, from, navigate]);
+
+  // Show OAuth errors forwarded from the root URL via AuthOrchestrator
+  useEffect(() => {
+    const urlError = searchParams.get('error');
+    const urlErrorDescription = searchParams.get('error_description');
+    if (urlError) {
+      const msg = urlErrorDescription
+        ? decodeURIComponent(urlErrorDescription).replace(/\+/g, ' ')
+        : 'Sign in failed. Please try again.';
+      setError(msg);
+    }
+  }, [searchParams]);
 
   const handleGoogleLogin = async () => {
+    setError(null);
+    // Store intended destination in sessionStorage — AuthOrchestrator reads this after SIGNED_IN
+    if (from.startsWith('/') && !from.startsWith('//')) {
+      sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, from);
+    }
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin + '/app'
-      }
+        // Use origin (Site URL) — always whitelisted by Supabase, no dashboard config needed
+        redirectTo: window.location.origin,
+      },
     });
   };
 
@@ -23,28 +59,33 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+    setInfo(null);
+    // Clear any stale Google OAuth redirect so AuthOrchestrator doesn't double-navigate
+    sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate('/app');
+        navigate(from, { replace: true });
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: window.location.origin + '/app'
-          }
+          options: { emailRedirectTo: window.location.origin + '/app' },
         });
         if (error) throw error;
-        setError('Check your email for the confirmation link!');
+
+        // Supabase silently succeeds for existing emails but returns user with no identities
+        if (data.user && (data.user.identities?.length ?? 0) === 0) {
+          setError('An account with this email already exists — please sign in instead.');
+          return;
+        }
+
+        setInfo('Check your email for a confirmation link to complete sign up.');
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication');
+      setError(err.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -55,10 +96,16 @@ export default function Login() {
       <div className="glass-panel" style={{ padding: '3rem', maxWidth: '400px', width: '100%', textAlign: 'center', background: 'rgba(25, 25, 25, 0.65)' }}>
         <h2 style={{ marginBottom: '1rem', color: '#fff' }}>Welcome to CollabDoc</h2>
         <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Sign in to access your collaborative workspace.</p>
-        
+
         {error && (
-          <div style={{ marginBottom: '1rem', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255, 68, 68, 0.1)', color: '#ff4444', fontSize: '0.875rem' }}>
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', borderRadius: '8px', background: 'rgba(255, 68, 68, 0.15)', border: '1px solid rgba(255,68,68,0.3)', color: '#ff6b6b', fontSize: '0.875rem', textAlign: 'left' }}>
             {error}
+          </div>
+        )}
+
+        {info && (
+          <div style={{ marginBottom: '1rem', padding: '0.75rem', borderRadius: '8px', background: 'rgba(52, 168, 83, 0.15)', border: '1px solid rgba(52,168,83,0.3)', color: '#5cb85c', fontSize: '0.875rem', textAlign: 'left' }}>
+            {info}
           </div>
         )}
 
@@ -79,8 +126,8 @@ export default function Login() {
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', color: '#fff' }}
             required
           />
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="btn btn-primary"
             disabled={loading}
             style={{ width: '100%', padding: '0.75rem' }}
@@ -95,16 +142,16 @@ export default function Login() {
           <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }}></div>
         </div>
 
-        <button 
+        <button
           type="button"
           onClick={handleGoogleLogin}
-          style={{ 
-            width: '100%', 
-            padding: '0.75rem', 
-            fontSize: '1rem', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
+          style={{
+            width: '100%',
+            padding: '0.75rem',
+            fontSize: '1rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
             gap: '0.5rem',
             background: '#fff',
             color: '#000',
@@ -112,7 +159,7 @@ export default function Login() {
             borderRadius: '8px',
             cursor: 'pointer',
             fontWeight: 500,
-            transition: 'background 0.2s'
+            transition: 'background 0.2s',
           }}
           onMouseOver={(e) => e.currentTarget.style.background = '#f0f0f0'}
           onMouseOut={(e) => e.currentTarget.style.background = '#fff'}
@@ -129,9 +176,9 @@ export default function Login() {
         </button>
 
         <div style={{ marginTop: '2rem' }}>
-          <button 
+          <button
             type="button"
-            onClick={() => { setIsLogin(!isLogin); setError(null); }}
+            onClick={() => { setIsLogin(!isLogin); setError(null); setInfo(null); }}
             style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: '0.875rem' }}
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
