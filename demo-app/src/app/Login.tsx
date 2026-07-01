@@ -19,7 +19,8 @@ export default function Login() {
   const { user } = useAuth();
 
   // Where to go after login — set by ProtectedRoute when redirecting here
-  const from: string = (location.state as any)?.from?.pathname || '/app';
+  const rawFrom: string = (location.state as any)?.from?.pathname || '/app';
+  const from: string = rawFrom.startsWith('/') && !rawFrom.startsWith('//') ? rawFrom : '/app';
 
   // If already logged in, redirect immediately
   useEffect(() => {
