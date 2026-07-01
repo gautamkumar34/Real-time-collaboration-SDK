@@ -33,6 +33,7 @@ export default function DocumentEditor() {
   const [text, setText] = useState('');
   const [title, setTitle] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevTextRef = useRef('');
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [wordCount, setWordCount] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
@@ -115,13 +116,46 @@ export default function DocumentEditor() {
       });
     }
 
-    setText(yText.toString());
+    const initialText = yText.toString();
+    setText(initialText);
+    prevTextRef.current = initialText;
     setTitle(yMeta.get('title') as string || docTitle);
-    setWordCount(yText.toString().trim() ? yText.toString().trim().split(/\s+/).length : 0);
+    setWordCount(initialText.trim() ? initialText.trim().split(/\s+/).length : 0);
 
-    const textObs = () => {
+    const textObs = (event: any, transaction: any) => {
       const t = yText.toString();
-      setText(t);
+      prevTextRef.current = t;
+      const ta = textareaRef.current;
+
+      if (!transaction.local && ta && event.delta) {
+        // Remote change: adjust local cursor so it stays at the same logical position
+        let selStart = ta.selectionStart;
+        let selEnd = ta.selectionEnd;
+        let offset = 0;
+        for (const op of event.delta) {
+          if (op.retain !== undefined) {
+            offset += op.retain;
+          } else if (op.insert !== undefined) {
+            const len = typeof op.insert === 'string' ? op.insert.length : 1;
+            if (offset <= selStart) selStart += len;
+            if (offset <= selEnd) selEnd += len;
+            offset += len;
+          } else if (op.delete !== undefined) {
+            if (offset < selStart) selStart -= Math.min(op.delete, selStart - offset);
+            if (offset < selEnd) selEnd -= Math.min(op.delete, selEnd - offset);
+          }
+        }
+        setText(t);
+        requestAnimationFrame(() => {
+          if (textareaRef.current) {
+            textareaRef.current.selectionStart = selStart;
+            textareaRef.current.selectionEnd = selEnd;
+          }
+        });
+      } else {
+        setText(t);
+      }
+
       setWordCount(t.trim() ? t.trim().split(/\s+/).length : 0);
     };
 
@@ -143,7 +177,9 @@ export default function DocumentEditor() {
     if (!collabDoc) return;
     const yText = collabDoc.getText('content');
     const newValue = e.target.value;
-    const oldValue = yText.toString();
+    // Use the ref (not yText.toString()) so the diff is always against what the
+    // textarea was actually showing, even if a remote change arrived between renders.
+    const oldValue = prevTextRef.current;
 
     // Find common prefix
     let commonPrefixLen = 0;

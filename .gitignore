@@ -26,6 +26,9 @@ npm-debug.log*
 !.vscode/extensions.json
 !.vscode/settings.json
 .agents/
+.superpowers/
+docs/
+skills-lock.json
 
 # Docker volumes (if mounted locally)
 postgres_data/

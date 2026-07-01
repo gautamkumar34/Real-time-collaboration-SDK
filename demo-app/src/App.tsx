@@ -15,9 +15,11 @@ function AuthOrchestrator() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
 
-  // Forward Supabase OAuth errors from root URL to the login page
+  // Forward Supabase OAuth errors to the login page.
+  // Supabase redirects errors to the Site URL (which may be /app, not just /),
+  // so we check for the Supabase-specific error_code param at any path.
   useEffect(() => {
-    if (location.pathname === '/' && searchParams.get('error')) {
+    if (location.pathname !== '/login' && searchParams.get('error_code')) {
       const error = encodeURIComponent(searchParams.get('error') || '');
       const desc = encodeURIComponent(searchParams.get('error_description') || '');
       navigate(`/login?error=${error}&error_description=${desc}`, { replace: true });

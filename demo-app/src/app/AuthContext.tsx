@@ -29,11 +29,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [pendingRedirect, setPendingRedirect] = useState<string | null>(null);
 
   useEffect(() => {
+    const consumePendingRedirect = () => {
+      const stored = sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
+      if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
+        sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+        setPendingRedirect(stored);
+      }
+    };
+
     supabase.auth.getSession()
       .then(({ data: { session } }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setIsLoading(false);
+        // Supabase JS v2 fires INITIAL_SESSION (not SIGNED_IN) when onAuthStateChange
+        // subscribes after the client has already processed the OAuth token from the URL.
+        // Reading sessionStorage here covers that timing gap.
+        if (session) consumePendingRedirect();
       })
       .catch(() => setIsLoading(false));
 
@@ -42,12 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       setIsLoading(false);
 
-      if (event === 'SIGNED_IN') {
-        const stored = sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
-        if (stored && stored.startsWith('/') && !stored.startsWith('//')) {
-          sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
-          setPendingRedirect(stored);
-        }
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && session) {
+        consumePendingRedirect();
       }
     });
 
