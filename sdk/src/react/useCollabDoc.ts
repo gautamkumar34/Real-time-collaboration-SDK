@@ -64,7 +64,7 @@ export function useCollabDoc(options: CollabDocConfig): UseCollabDocReturn {
       setIsConnected(false);
       setIsSynced(false);
     };
-  }, [options.roomId, options.serverUrl]);
+  }, [options.roomId, options.serverUrl, options.token]);
 
   return { docState, doc, isConnected, isSynced, presence, error };
 }

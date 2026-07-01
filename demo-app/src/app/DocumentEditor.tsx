@@ -38,7 +38,7 @@ export default function DocumentEditor() {
   const [toastMessage, setToastMessage] = useState('');
 
   // 1. Generate/load local user details
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   
   const currentUser = useMemo(() => {
     if (user) {
@@ -58,6 +58,7 @@ export default function DocumentEditor() {
     roomId: id || 'default-room',
     serverUrl,
     user: currentUser,
+    token: session?.access_token,
   });
 
   // Ensure this document is saved in the local list (e.g. if joined via share link)
