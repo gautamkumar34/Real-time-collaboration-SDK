@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router-dom';
 import LandingLayout from './landing/LandingLayout';
 import LandingPage from './landing/LandingPage';
 import AppLayout from './app/AppLayout';
@@ -37,11 +37,16 @@ function App() {
         {/* App workspace (Protected) */}
         <Route path="/app" element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
           <Route index element={<Dashboard />} />
-          <Route path="doc/:id" element={<DocumentEditor />} />
+          <Route path="doc/:id" element={<DocumentEditorWrapper />} />
         </Route>
       </Routes>
     </AuthProvider>
   );
+}
+
+function DocumentEditorWrapper() {
+  const { id } = useParams<{ id: string }>();
+  return <DocumentEditor key={id} />;
 }
 
 export default App;

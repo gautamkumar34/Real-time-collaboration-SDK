@@ -54,7 +54,7 @@ export default function DocumentEditor() {
 
   // 2. Connect to the real server using the SDK hook
   const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:8080';
-  const { doc: collabDoc, isConnected, isSynced, presence } = useCollabDoc({
+  const { doc: collabDoc, isConnected, isSynced, presence, error } = useCollabDoc({
     roomId: id || 'default-room',
     serverUrl,
     user: currentUser,
@@ -257,7 +257,7 @@ export default function DocumentEditor() {
           />
           <span className="editor-save-status">
             <span className={`status-pulse-dot ${isConnected ? 'green' : 'red'}`} />
-            {isConnected ? 'Sync Active' : 'Connecting...'}
+            {isConnected ? 'Sync Active' : error ? `Error: ${error.message}` : 'Connecting...'}
           </span>
         </div>
 
