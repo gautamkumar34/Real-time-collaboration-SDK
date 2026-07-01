@@ -163,6 +163,10 @@ export default class CollabDoc extends EventEmitter<CollabDocEvents> {
   }
 
   public disconnect() {
+    if (this.cursorThrottleTimer) {
+      clearTimeout(this.cursorThrottleTimer);
+      this.cursorThrottleTimer = null;
+    }
     if (this.provider) {
       // Send awareness removal
       this.provider.awareness.setLocalState(null);
@@ -257,10 +261,21 @@ export default class CollabDoc extends EventEmitter<CollabDocEvents> {
     return this.provider?.awareness ?? null;
   }
 
-  /** Update cursor position in awareness */
+  private cursorThrottleTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingCursor: { path: string; offset: number } | null = null;
+
+  /** Update cursor position in awareness (throttled to 50ms) */
   public setCursor(cursor: { path: string; offset: number } | null): void {
     this.provider?.awareness.setLocalStateField('cursor', cursor);
-    this.provider?.broadcastAwareness();
+    this.pendingCursor = cursor;
+
+    // Throttle: only broadcast at most once every 50ms
+    if (!this.cursorThrottleTimer) {
+      this.cursorThrottleTimer = setTimeout(() => {
+        this.cursorThrottleTimer = null;
+        this.provider?.broadcastAwareness();
+      }, 50);
+    }
   }
 
   /** Get all connected users' awareness states */

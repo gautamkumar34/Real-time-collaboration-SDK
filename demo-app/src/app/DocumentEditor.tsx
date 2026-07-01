@@ -27,6 +27,15 @@ const CheckIcon = () => (
 
 /**
  * DocumentEditor — Collaborative text editor using the real CollabDoc SDK.
+ *
+ * Cursor strategy:
+ *   - We keep the textarea as a controlled component (`value={text}`).
+ *   - On LOCAL edits we let React's normal flow handle cursor.
+ *   - On REMOTE edits we compute the adjusted cursor BEFORE calling setText,
+ *     store it in a ref, and restore it in a useLayoutEffect-style callback
+ *     right after React commits the new value.
+ *   - We broadcast our cursor offset on EVERY keystroke (inside handleTextChange)
+ *     so remote users always see an up-to-date position.
  */
 export default function DocumentEditor() {
   const { id } = useParams<{ id: string }>();
@@ -34,9 +43,14 @@ export default function DocumentEditor() {
   const [title, setTitle] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevTextRef = useRef('');
+  // Pending cursor position to restore after a remote edit triggers a re-render.
+  const pendingCursorRef = useRef<{ start: number; end: number } | null>(null);
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [wordCount, setWordCount] = useState(0);
   const [toastMessage, setToastMessage] = useState('');
+  // Flag: true while a local onChange is being processed so the observer
+  // doesn't fight with the controlled value.
+  const isLocalEditRef = useRef(false);
 
   // 1. Generate/load local user details
   const { user, session } = useAuth();
@@ -45,7 +59,6 @@ export default function DocumentEditor() {
     if (user) {
       const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
       const colors = ['#0070f3', '#34d399', '#f472b6', '#7928ca', '#f5a623', '#22d3ee', '#ec4899'];
-      // Deterministic color based on name string
       const colorIndex = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length;
       const color = colors[colorIndex];
       return { name, color };
@@ -95,6 +108,18 @@ export default function DocumentEditor() {
     }
   }, [id, title]);
 
+  // ──────────────────────────────────────────────────────────────
+  //  Restore cursor after React commits a remote-triggered render
+  // ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (pendingCursorRef.current && textareaRef.current) {
+      const { start, end } = pendingCursorRef.current;
+      textareaRef.current.selectionStart = start;
+      textareaRef.current.selectionEnd = end;
+      pendingCursorRef.current = null;
+    }
+  }, [text]); // runs every time `text` state changes
+
   // 3. Initialize and sync document content
   useEffect(() => {
     if (!collabDoc || !id) return;
@@ -103,12 +128,11 @@ export default function DocumentEditor() {
     const yText = collabDoc.getText('content');
     const yMeta = ydoc.getMap('meta');
 
-    // Default title: fetch from local storage if created with a custom title, otherwise fallback
     const savedDocs = getSavedDocuments();
     const existingDoc = savedDocs.find(d => d.id === id);
     const docTitle = existingDoc?.title || id.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
 
-    // Only initialize with default template content once the server sync has completed and the document is empty!
+    // Only initialize with default template once sync is complete and doc is empty
     if (isSynced && yText.length === 0) {
       collabDoc.getYDoc().transact(() => {
         yText.insert(0, `# ${docTitle}\n\nStart writing your document here.\n\nThis editor uses Yjs CRDTs for conflict-free real-time collaboration.\n`);
@@ -122,39 +146,55 @@ export default function DocumentEditor() {
     setTitle(yMeta.get('title') as string || docTitle);
     setWordCount(initialText.trim() ? initialText.trim().split(/\s+/).length : 0);
 
+    /**
+     * Core observer — called for BOTH local and remote changes.
+     *
+     * For remote changes we need to:
+     *   1. Compute where our cursor should be after the remote insert/delete.
+     *   2. Store that in pendingCursorRef so the useEffect above restores it.
+     */
     const textObs = (event: any, transaction: any) => {
       const t = yText.toString();
       prevTextRef.current = t;
-      const ta = textareaRef.current;
 
-      if (!transaction.local && ta && event.delta) {
-        // Remote change: adjust local cursor so it stays at the same logical position
-        let selStart = ta.selectionStart;
-        let selEnd = ta.selectionEnd;
-        let offset = 0;
-        for (const op of event.delta) {
-          if (op.retain !== undefined) {
-            offset += op.retain;
-          } else if (op.insert !== undefined) {
-            const len = typeof op.insert === 'string' ? op.insert.length : 1;
-            if (offset <= selStart) selStart += len;
-            if (offset <= selEnd) selEnd += len;
-            offset += len;
-          } else if (op.delete !== undefined) {
-            if (offset < selStart) selStart -= Math.min(op.delete, selStart - offset);
-            if (offset < selEnd) selEnd -= Math.min(op.delete, selEnd - offset);
+      if (!transaction.local && !isLocalEditRef.current) {
+        // ── Remote edit ───────────────────────────────────────
+        const ta = textareaRef.current;
+        if (ta && event.delta) {
+          let selStart = ta.selectionStart;
+          let selEnd = ta.selectionEnd;
+          let offset = 0;
+          for (const op of event.delta) {
+            if (op.retain !== undefined) {
+              offset += op.retain;
+            } else if (op.insert !== undefined) {
+              const len = typeof op.insert === 'string' ? op.insert.length : 1;
+              if (offset <= selStart) selStart += len;
+              if (offset <= selEnd) selEnd += len;
+              offset += len;
+            } else if (op.delete !== undefined) {
+              const del = op.delete;
+              if (offset < selStart) {
+                selStart -= Math.min(del, selStart - offset);
+              }
+              if (offset < selEnd) {
+                selEnd -= Math.min(del, selEnd - offset);
+              }
+            }
           }
+          // Clamp to valid range
+          selStart = Math.max(0, Math.min(selStart, t.length));
+          selEnd = Math.max(0, Math.min(selEnd, t.length));
+          pendingCursorRef.current = { start: selStart, end: selEnd };
         }
         setText(t);
-        requestAnimationFrame(() => {
-          if (textareaRef.current) {
-            textareaRef.current.selectionStart = selStart;
-            textareaRef.current.selectionEnd = selEnd;
-          }
-        });
-      } else {
+      } else if (!isLocalEditRef.current) {
+        // Local Yjs change that didn't come from handleTextChange
+        // (e.g. initial template insertion)
         setText(t);
       }
+      // If isLocalEditRef.current is true, we skip setText here because
+      // handleTextChange already called setText synchronously for instant feedback.
 
       setWordCount(t.trim() ? t.trim().split(/\s+/).length : 0);
     };
@@ -172,14 +212,21 @@ export default function DocumentEditor() {
     };
   }, [collabDoc, id, isSynced]);
 
-  // 4. Handle text edits with prefix-suffix incremental diffing
+  // ──────────────────────────────────────────────────────────────
+  //  4. Handle text edits — diff, apply to Yjs, broadcast cursor
+  // ──────────────────────────────────────────────────────────────
   const handleTextChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     if (!collabDoc) return;
     const yText = collabDoc.getText('content');
     const newValue = e.target.value;
-    // Use the ref (not yText.toString()) so the diff is always against what the
-    // textarea was actually showing, even if a remote change arrived between renders.
     const oldValue = prevTextRef.current;
+
+    // Set the local edit flag so the observer doesn't fight with us
+    isLocalEditRef.current = true;
+
+    // Optimistically update React state so the textarea feels instant
+    setText(newValue);
+    prevTextRef.current = newValue;
 
     // Find common prefix
     let commonPrefixLen = 0;
@@ -212,6 +259,17 @@ export default function DocumentEditor() {
         yText.insert(commonPrefixLen, insertText);
       }
     });
+
+    // Clear the local edit flag after Yjs transaction completes
+    isLocalEditRef.current = false;
+
+    // ── Broadcast cursor position on every keystroke ──
+    const pos = e.target.selectionStart;
+    collabDoc.setCursor({ path: 'content', offset: pos });
+
+    // Update status bar cursor info
+    const lines = newValue.substring(0, pos).split('\n');
+    setCursorPos({ line: lines.length, col: lines[lines.length - 1].length + 1 });
   }, [collabDoc]);
 
   // 5. Handle title edits
@@ -240,18 +298,20 @@ export default function DocumentEditor() {
   };
 
   // Get active online users from presence
-  const activeUsers = Array.from(presence.entries())
-    .map(([clientId, state]) => ({
-      id: clientId,
-      name: state.user?.name || `User ${clientId}`,
-      color: state.user?.color || '#888888',
-      isSelf: clientId === collabDoc?.getAwareness()?.clientID,
-      cursorOffset: state.cursor?.offset,
-    }));
+  const activeUsers = useMemo(() => {
+    return Array.from(presence.entries())
+      .map(([clientId, state]) => ({
+        id: clientId,
+        name: state.user?.name || `User ${clientId}`,
+        color: state.user?.color || '#888888',
+        isSelf: clientId === collabDoc?.getAwareness()?.clientID,
+        cursorOffset: state.cursor?.offset,
+      }));
+  }, [presence, collabDoc]);
 
   const [remoteCursors, setRemoteCursors] = useState<any[]>([]);
 
-  // Calculate remote cursor positions
+  // Calculate remote cursor positions — only for OTHER users
   const updateRemoteCursors = useCallback(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -259,7 +319,9 @@ export default function DocumentEditor() {
     const cursors = activeUsers
       .filter(u => !u.isSelf && typeof u.cursorOffset === 'number')
       .map(u => {
-        const coords = getCaretCoordinates(ta, u.cursorOffset!);
+        // Clamp offset to valid range for the current text
+        const clampedOffset = Math.max(0, Math.min(u.cursorOffset!, ta.value.length));
+        const coords = getCaretCoordinates(ta, clampedOffset);
         return {
           ...u,
           top: coords.top - ta.scrollTop,
@@ -275,6 +337,11 @@ export default function DocumentEditor() {
   useEffect(() => {
     updateRemoteCursors();
   }, [updateRemoteCursors]);
+
+  // Also recalculate remote cursors when text changes (positions shift)
+  useEffect(() => {
+    updateRemoteCursors();
+  }, [text]);
 
   return (
     <div className="editor-page">
