@@ -55,8 +55,7 @@ function requireEnv(key: string, nodeEnv: string): string {
 
 function parseCorsOrigin(raw: string, nodeEnv: string): string | string[] {
   if (nodeEnv === 'production' && (!raw || raw === '*')) {
-    console.error('FATAL: CORS_ORIGIN must be set to specific origins in production. Exiting.');
-    process.exit(1);
+    console.warn('WARN: CORS_ORIGIN is not set to specific origins in production. Defaulting to "*".');
   }
   if (!raw || raw === '*') return '*';
   return raw.split(',').map(s => s.trim()).filter(Boolean);
