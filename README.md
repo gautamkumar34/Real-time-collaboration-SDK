@@ -13,7 +13,7 @@ Built on **Yjs CRDTs** + **Socket.IO** — no conflicts, no vendor lock-in.
 
 ## 🌐 Live Demo
 
-**https://real-time-collaboration-sdk-demo-ap.vercel.app/**
+**https://collabdocsdk.vercel.app/**
 
 ## ✨ Why CollabDoc?
 
