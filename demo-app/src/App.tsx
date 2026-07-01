@@ -22,7 +22,7 @@ function AuthOrchestrator() {
       const desc = encodeURIComponent(searchParams.get('error_description') || '');
       navigate(`/login?error=${error}&error_description=${desc}`, { replace: true });
     }
-  }, [location.pathname, searchParams]);
+  }, [location.pathname, searchParams, navigate]);
 
   // Navigate to intended destination after Google OAuth
   useEffect(() => {
@@ -30,7 +30,7 @@ function AuthOrchestrator() {
       clearPendingRedirect();
       navigate(pendingRedirect, { replace: true });
     }
-  }, [user, pendingRedirect]);
+  }, [user, pendingRedirect, clearPendingRedirect, navigate]);
 
   return null;
 }

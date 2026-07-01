@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState } from 'react';
 import type { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 
@@ -54,7 +54,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const clearPendingRedirect = () => setPendingRedirect(null);
+  const clearPendingRedirect = useCallback(() => setPendingRedirect(null), []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
