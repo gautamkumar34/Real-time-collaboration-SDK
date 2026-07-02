@@ -6,18 +6,22 @@ import { resolve } from 'path';
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/collab-doc.ts'), // Your main SDK entry point
-      name: 'CollabDoc', // The global variable name when used as a UMD
-      formats: ['umd', 'es'], // Output formats
-      fileName: (format) => `collab-doc.${format}.js`,
+      entry: {
+        'collabdoc-sdk': resolve(__dirname, 'src/index.ts'),
+        'react': resolve(__dirname, 'src/react/useCollabDoc.ts'),
+      },
+      name: 'CollabDocSDK',
+      formats: ['es', 'cjs'],
+      fileName: (format, entryName) => `${entryName}.${format}.js`,
     },
     rollupOptions: {
-      // Make sure external dependencies aren't bundled
-      // external: [], // Add any external peer dependencies here
+      // React is the only true external — users always have it.
+      // yjs + socket.io-client are bundled so users don't need to install them.
+      external: ['react', 'react-dom'],
       output: {
-        // Provide global variables to use in the UMD build
         globals: {
-          // If you had external dependencies, you'd define globals here
+          react: 'React',
+          'react-dom': 'ReactDOM',
         },
       },
     },
@@ -26,7 +30,7 @@ export default defineConfig({
   },
   plugins: [
     dts({
-      insertTypesEntry: true, // Generate a .d.ts entry file
+      insertTypesEntry: true,
     }),
   ],
   resolve: {

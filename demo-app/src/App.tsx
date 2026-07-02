@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, useLocation, useParams, useNavigate, useSearch
 import { useEffect } from 'react';
 import LandingLayout from './landing/LandingLayout';
 import LandingPage from './landing/LandingPage';
+import DocsPage from './landing/DocsPage';
 import AppLayout from './app/AppLayout';
 import Dashboard from './app/Dashboard';
 import DocumentEditor from './app/DocumentEditor';
@@ -59,6 +60,7 @@ function App() {
       <Routes>
         <Route element={<LandingLayout />}>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/docs" element={<DocsPage />} />
         </Route>
 
         <Route path="/login" element={<Login />} />

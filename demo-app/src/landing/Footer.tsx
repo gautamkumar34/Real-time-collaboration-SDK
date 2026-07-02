@@ -13,21 +13,21 @@ export default function Footer() {
         <div className="footer-links">
           <div className="footer-col">
             <h4>Product</h4>
-            <Link to="/features">Features</Link>
-            <Link to="/pricing">Pricing</Link>
-            <Link to="/demo">Live Demo</Link>
+            <a href="/#features">Features</a>
+            <a href="/#pricing">Pricing</a>
+            <a href="/#demo">Live Demo</a>
           </div>
           <div className="footer-col">
             <h4>Resources</h4>
-            <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>
-            <a href="#docs">Documentation</a>
-            <a href="#changelog">Changelog</a>
+            <a href="https://github.com/gautamkumar34/Real-time-collaboration-SDK" target="_blank" rel="noopener">GitHub</a>
+            <Link to="/docs">Documentation</Link>
+            <a href="https://www.npmjs.com/package/collabdoc-sdk" target="_blank" rel="noopener">NPM Package</a>
           </div>
           <div className="footer-col">
             <h4>Community</h4>
-            <a href="#discord">Discord</a>
-            <a href="#twitter">Twitter</a>
-            <a href="#blog">Blog</a>
+            <a href="https://github.com/gautamkumar34/Real-time-collaboration-SDK/issues" target="_blank" rel="noopener">Issues</a>
+            <a href="https://github.com/gautamkumar34/Real-time-collaboration-SDK/discussions" target="_blank" rel="noopener">Discussions</a>
+            <a href="https://x.com" target="_blank" rel="noopener">Twitter</a>
           </div>
         </div>
 

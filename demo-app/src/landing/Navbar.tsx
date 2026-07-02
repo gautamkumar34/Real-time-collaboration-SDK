@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 
 const LightningIcon = () => (
@@ -10,8 +10,10 @@ const LightningIcon = () => (
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeHash, setActiveHash] = useState('#home');
+  const location = useLocation();
+  const isDocsPage = location.pathname === '/docs';
 
-  const links = [
+  const hashLinks = [
     { hash: '#home', label: 'Home' },
     { hash: '#features', label: 'Features' },
     { hash: '#pricing', label: 'Pricing' },
@@ -19,13 +21,14 @@ export default function Navbar() {
   ];
 
   useEffect(() => {
+    if (isDocsPage) return;
     const handleHashChange = () => {
       setActiveHash(window.location.hash || '#home');
     };
     window.addEventListener('hashchange', handleHashChange);
     handleHashChange();
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
+  }, [isDocsPage]);
 
   const handleLinkClick = (hash: string) => {
     setActiveHash(hash);
@@ -35,22 +38,29 @@ export default function Navbar() {
   return (
     <nav className="navbar glass">
       <div className="container navbar-inner">
-        <a href="#home" className="navbar-brand" onClick={() => handleLinkClick('#home')}>
+        <Link to="/" className="navbar-brand" onClick={() => handleLinkClick('#home')}>
           <LightningIcon />
           <span className="brand-text">CollabDoc</span>
-        </a>
+        </Link>
 
         <div className={`navbar-links ${menuOpen ? 'open' : ''}`}>
-          {links.map(({ hash, label }) => (
+          {hashLinks.map(({ hash, label }) => (
             <a
               key={hash}
-              href={hash}
-              className={`nav-link ${activeHash === hash ? 'active' : ''}`}
+              href={isDocsPage ? `/${hash}` : hash}
+              className={`nav-link ${!isDocsPage && activeHash === hash ? 'active' : ''}`}
               onClick={() => handleLinkClick(hash)}
             >
               {label}
             </a>
           ))}
+          <Link
+            to="/docs"
+            className={`nav-link ${isDocsPage ? 'active' : ''}`}
+            onClick={() => setMenuOpen(false)}
+          >
+            Docs
+          </Link>
         </div>
 
         <div className="navbar-actions">

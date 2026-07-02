@@ -1,33 +1,66 @@
 {
-  "name": "collab-doc",
-  "version": "0.1.0",
-  "main": "./dist/collab-doc.umd.js",
-  "module": "./dist/collab-doc.es.js",
-  "types": "./dist/collab-doc.d.ts",
+  "name": "collabdoc-sdk",
+  "version": "1.0.0",
+  "description": "Real-time collaborative document editing SDK powered by Yjs CRDTs and Socket.IO. Add Google Docs-style collaboration to any React app in minutes.",
+  "author": "Gautam Kumar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gautamkumar34/Real-time-collaboration-SDK"
+  },
+  "homepage": "https://collabdocsdk.vercel.app",
+  "keywords": [
+    "collaboration",
+    "realtime",
+    "crdt",
+    "yjs",
+    "socket.io",
+    "collaborative-editing",
+    "react",
+    "multiplayer",
+    "document-editing",
+    "sdk"
+  ],
+  "main": "./dist/collabdoc-sdk.cjs.js",
+  "module": "./dist/collabdoc-sdk.es.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/collabdoc-sdk.es.js",
+      "require": "./dist/collabdoc-sdk.cjs.js"
+    },
+    "./react": {
+      "types": "./dist/react/useCollabDoc.d.ts",
+      "import": "./dist/react.es.js",
+      "require": "./dist/react.cjs.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
-    "test": "jest"
+    "test": "jest",
+    "prepublishOnly": "npm run build"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "yjs": "^13.6.31"
+  },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.15.19",
     "@types/react": "^19.2.17",
-    "@types/uuid": "^10.0.0",
     "jest": "^29.7.0",
     "ts-jest": "^29.3.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "vite": "^6.3.5",
     "vite-plugin-dts": "^4.5.4"
-  },
-  "dependencies": {
-    "socket.io-client": "^4.8.1",
-    "uuid": "^11.1.0",
-    "yjs": "^13.6.31"
   }
 }
