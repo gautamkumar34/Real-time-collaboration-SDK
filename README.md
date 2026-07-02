@@ -30,26 +30,18 @@ Built on **Yjs CRDTs** + **Socket.IO** — no conflicts, no vendor lock-in.
 
 ## 🚀 Quick Start
 
-### 1. Install & Run
+### 1. Install the SDK
+
+You don't need to fork or clone this repository to use the SDK in your own project. Just install the published package via npm:
 
 ```bash
-git clone https://github.com/gautamkumar34/Real-time-collaboration-SDK.git
-cd sdk-project
-npm install
-
-# Terminal 1 — Server
-cd server && npm run dev
-
-# Terminal 2 — Demo App
-cd demo-app && npm run dev
+npm install collabdoc-sdk
 ```
-
-Open `http://localhost:5173` → Landing page with live demo.
 
 ### 2. Use in Your App (3 lines)
 
 ```typescript
-import { CollabDoc } from 'collab-doc';
+import { CollabDoc } from 'collabdoc-sdk';
 
 const doc = new CollabDoc({
   roomId: 'my-document',
@@ -77,7 +69,7 @@ console.log(doc.getDocumentState()); // { title: 'Hello World' }
 ### 3. React Hook
 
 ```tsx
-import { useCollabDoc } from 'collab-doc/react';
+import { useCollabDoc } from 'collabdoc-sdk/react';
 
 function Editor() {
   const { doc, docState, isConnected, isSynced, presence, error } = useCollabDoc({
@@ -112,6 +104,24 @@ function Editor() {
   );
 }
 ```
+
+## 🛠️ Run the Server & Demo App Locally
+
+If you want to run the full demo app or self-host the WebSocket server, clone the repository:
+
+```bash
+git clone https://github.com/gautamkumar34/Real-time-collaboration-SDK.git
+cd Real-time-collaboration-SDK
+npm install
+
+# Terminal 1 — Server
+cd server && npm run dev
+
+# Terminal 2 — Demo App
+cd demo-app && npm run dev
+```
+
+Open `http://localhost:5173` to see the landing page and live demo.
 
 ## 📦 Project Structure
 
