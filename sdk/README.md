@@ -8,12 +8,12 @@
 
 ## Features
 
-- 🔄 **Conflict-Free Merging** — Yjs CRDTs guarantee zero data loss, even with simultaneous edits
-- ⚡ **Real-Time Sync** — Sub-50ms latency over Socket.IO WebSockets
-- 👥 **Presence & Cursors** — See who's online and where they're typing
-- 🔌 **Offline Support** — Keep editing offline; changes merge seamlessly on reconnect
-- 🔐 **JWT Authentication** — Secure room-based access with any auth provider
-- 📦 **Zero Config** — All dependencies bundled; just `npm install` and go
+- **Conflict-Free Merging** — Yjs CRDTs guarantee zero data loss, even with simultaneous edits
+- **Real-Time Sync** — Sub-50ms latency over Socket.IO WebSockets
+- **Presence & Cursors** — See who's online and where they're typing
+- **Offline Support** — Keep editing offline; changes merge seamlessly on reconnect
+- **JWT Authentication** — Secure room-based access with any auth provider
+- **Zero Config** — All dependencies bundled; just `npm install` and go
 
 ## Quick Start
 
@@ -50,7 +50,7 @@ function CollaborativeEditor() {
 
   return (
     <div>
-      <p>{isConnected ? '🟢 Connected' : '🔴 Connecting...'}</p>
+      <p>{isConnected ? 'Connected' : 'Connecting...'}</p>
       <p>{presence.size} users online</p>
       <textarea value={text} onChange={handleChange} />
     </div>

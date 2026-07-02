@@ -1,6 +1,6 @@
 {
   "name": "collabdoc-sdk",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Real-time collaborative document editing SDK powered by Yjs CRDTs and Socket.IO. Add Google Docs-style collaboration to any React app in minutes.",
   "author": "Gautam Kumar",
   "license": "MIT",
