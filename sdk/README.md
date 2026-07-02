@@ -142,7 +142,7 @@ doc.on('error', (err) => {})            // Error occurred
 
 ## Server Setup
 
-The SDK requires a CollabDoc-compatible WebSocket server. See the [server documentation](https://github.com/gautamkumar34/Real-time-collaboration-SDK/tree/main/server) for setup instructions.
+The SDK requires a CollabDoc-compatible WebSocket server. See the [server documentation](https://github.com/gautamkumar34/Real-time-collaboration-SDK/tree/v2/server) for setup instructions.
 
 ```bash
 # Clone and run the server
