@@ -57,7 +57,12 @@ export default function DocumentEditor() {
   
   const currentUser = useMemo(() => {
     if (user) {
-      const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
+      const meta = user.user_metadata;
+      const name = (meta?.full_name && typeof meta.full_name === 'string' && meta.full_name.trim())
+        ? meta.full_name
+        : (meta?.first_name && typeof meta.first_name === 'string' && meta.first_name.trim())
+          ? meta.first_name
+          : user.email?.split('@')[0] || 'User';
       const colors = ['#0070f3', '#34d399', '#f472b6', '#7928ca', '#f5a623', '#22d3ee', '#ec4899'];
       const colorIndex = name.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % colors.length;
       const color = colors[colorIndex];

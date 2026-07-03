@@ -81,7 +81,13 @@ export default function AppLayout() {
 
   // Load current user
   const { user, signOut } = useAuth();
-  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  const userName = (() => {
+    const meta = user?.user_metadata;
+    if (meta?.full_name && typeof meta.full_name === 'string' && meta.full_name.trim()) return meta.full_name;
+    if (meta?.first_name && typeof meta.first_name === 'string' && meta.first_name.trim()) return meta.first_name;
+    if (user?.email) return user.email.split('@')[0];
+    return 'User';
+  })();
 
   // Listen to changes in documents list
   useEffect(() => {
