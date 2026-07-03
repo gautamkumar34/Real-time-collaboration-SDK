@@ -1,6 +1,6 @@
 
 export default function HeroPage() {
-  const codeSnippet = `import { CollabDoc } from 'collab-doc';
+  const codeSnippet = `import { CollabDoc } from 'collabdoc-sdk';
 
 const doc = new CollabDoc({
   roomId: 'my-room',

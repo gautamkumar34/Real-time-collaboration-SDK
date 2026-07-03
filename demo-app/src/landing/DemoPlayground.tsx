@@ -180,7 +180,7 @@ export default function DemoPlayground() {
               <span className="code-dot green" />
               <span className="code-filename">your-app.tsx</span>
             </div>
-            <pre className="code-body"><code>{`import { useCollabDoc } from 'collab-doc/react';
+            <pre className="code-body"><code>{`import { useCollabDoc } from 'collabdoc-sdk/react';
  
  function Editor() {
    const { doc, isConnected, presence } = useCollabDoc({
