@@ -1322,6 +1322,7 @@
 
 /* ─── Responsive ─────────────────────────────────────────────── */
 
+/* ── Tablet / large phone ── 900px */
 @media (max-width: 900px) {
   .hero-section {
     grid-template-columns: 1fr;
@@ -1341,9 +1342,7 @@
     justify-content: center;
   }
 
-  .hero-code {
-    order: -1;
-  }
+  /* hero-code has NO order override — text stays above code (Option A) */
 
   .hero-presence {
     display: none;
@@ -1351,13 +1350,49 @@
 
   .arch-flow {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .arch-arrow {
     transform: rotate(90deg);
   }
+
+  .arch-node {
+    min-width: unset;
+  }
 }
 
+/* ── Tablet ── 768px */
+@media (max-width: 768px) {
+  .section {
+    padding: 56px 0;
+  }
+
+  .social-proof {
+    padding: var(--space-2xl) 0 var(--space-3xl);
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    gap: var(--space-xl);
+  }
+
+  .footer-links {
+    gap: var(--space-xl);
+  }
+
+  .arch-diagram {
+    padding: var(--space-lg);
+    margin: var(--space-md) auto;
+  }
+
+  /* hide lower-priority status items on narrow screens */
+  .demo-status-bar .status-item:nth-child(n+3) {
+    display: none;
+  }
+}
+
+/* ── Phone ── 640px */
 @media (max-width: 640px) {
   .pricing-grid {
     grid-template-columns: 1fr;
@@ -1371,6 +1406,61 @@
 
   .features-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ── Small phone ── 480px */
+@media (max-width: 480px) {
+  .container {
+    padding: 0 var(--space-md);
+  }
+
+  .section {
+    padding: 40px 0;
+  }
+
+  .hero-section {
+    padding: var(--space-2xl) 0;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .hero-title {
+    font-size: clamp(1.8rem, 8vw, 2.4rem);
+  }
+
+  .section-header h1,
+  .section-header h2 {
+    font-size: clamp(1.5rem, 6vw, 1.9rem);
+  }
+
+  .section-subtitle {
+    font-size: 1rem;
+  }
+
+  .arch-diagram {
+    padding: var(--space-md);
+  }
+
+  .footer-links {
+    gap: var(--space-lg);
+  }
+
+  .demo-container {
+    border-radius: var(--radius-md);
+  }
+
+  .modal-content {
+    margin: 0 var(--space-md);
+    max-width: 100%;
   }
 }
 
