@@ -13,12 +13,14 @@
   --text-secondary: #a1a1a1;
   --text-muted: #666666;
 
-  --accent: #ffffff;          /* Stark White for active states/CTAs */
+  --accent: #ffffff;
+  /* Stark White for active states/CTAs */
   --accent-hover: #eaeaea;
   --accent-glow: rgba(255, 255, 255, 0.15);
   --accent-subtle: rgba(255, 255, 255, 0.06);
 
-  --green: #0070f3;           /* Success / Vercel Blue */
+  --green: #0070f3;
+  /* Success / Vercel Blue */
   --green-glow: rgba(0, 112, 243, 0.15);
   --yellow: #f5a623;
   --red: #ef4444;
@@ -82,7 +84,8 @@
   --text-secondary: #4d4d4d;
   --text-muted: #888888;
 
-  --accent: #171717;          /* Stark Black for active states/CTAs */
+  --accent: #171717;
+  /* Stark Black for active states/CTAs */
   --accent-hover: #000000;
   --accent-glow: rgba(23, 23, 23, 0.15);
   --accent-subtle: rgba(23, 23, 23, 0.05);
@@ -99,7 +102,9 @@
 
 /* ─── Reset ──────────────────────────────────────────────────── */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -142,7 +147,8 @@ button {
   outline: none;
 }
 
-code, pre {
+code,
+pre {
   font-family: var(--font-mono);
 }
 
@@ -239,34 +245,75 @@ code, pre {
 /* ─── Animations ─────────────────────────────────────────────── */
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 @keyframes gradientShift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .animate-in {
@@ -280,12 +327,29 @@ code, pre {
 }
 
 /* Stagger children */
-.stagger > *:nth-child(1) { animation-delay: 0ms; }
-.stagger > *:nth-child(2) { animation-delay: 80ms; }
-.stagger > *:nth-child(3) { animation-delay: 160ms; }
-.stagger > *:nth-child(4) { animation-delay: 240ms; }
-.stagger > *:nth-child(5) { animation-delay: 320ms; }
-.stagger > *:nth-child(6) { animation-delay: 400ms; }
+.stagger>*:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.stagger>*:nth-child(2) {
+  animation-delay: 80ms;
+}
+
+.stagger>*:nth-child(3) {
+  animation-delay: 160ms;
+}
+
+.stagger>*:nth-child(4) {
+  animation-delay: 240ms;
+}
+
+.stagger>*:nth-child(5) {
+  animation-delay: 320ms;
+}
+
+.stagger>*:nth-child(6) {
+  animation-delay: 400ms;
+}
 
 /* ─── Scrollbar ──────────────────────────────────────────────── */
 
@@ -337,6 +401,11 @@ code, pre {
 }
 
 @keyframes cursorBlink {
-  from { opacity: 1; }
-  to { opacity: 0.5; }
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0.5;
+  }
 }
